@@ -24,6 +24,12 @@ function overallText(level) {
   return level === 'green' ? 'GREEN' : level === 'yellow' ? 'YELLOW' : level === 'red' ? 'RED' : 'UNKNOWN';
 }
 
+function scoreLevel(score) {
+  if (score >= 95) return 'ok';
+  if (score >= 70) return 'warn';
+  return 'bad';
+}
+
 function yn(flag) {
   return flag ? 'ok' : 'missing';
 }
@@ -126,6 +132,31 @@ function update(snapshot, stats) {
 
   const agentsOk = snapshot.agents.main.status === 'ok' && snapshot.agents.work.status === 'ok';
   classBadge('badge-agents', agentsOk ? 'ok' : 'warn', agentsOk ? 'OK' : 'DEGRADED');
+
+  const split = stats?.agentsSplit || {};
+  const splitMain = split.main || {};
+  const splitWork = split.work || {};
+  const mainScore = Number(splitMain.score || 0);
+  const workScore = Number(splitWork.score || 0);
+
+  $('splitMainScore').textContent = `${mainScore}%`;
+  $('splitMainDetail').textContent = splitMain.model || '-';
+  $('splitMainChannel').textContent = `${splitMain.channel?.name || '-'} (${splitMain.channel?.httpCode ?? 0})`;
+  $('splitMainProbe').textContent = splitMain.status || '-';
+  $('splitMainLatency').textContent = splitMain.latencyMs != null ? `${splitMain.latencyMs}ms` : '-';
+  $('splitMainLastOk').textContent = splitMain.lastOkAt || '-';
+  classCard('[data-key="splitMain"]', scoreLevel(mainScore));
+
+  $('splitWorkScore').textContent = `${workScore}%`;
+  $('splitWorkDetail').textContent = splitWork.model || '-';
+  $('splitWorkChannel').textContent = `${splitWork.channel?.name || '-'} (${splitWork.channel?.httpCode ?? 0})`;
+  $('splitWorkProbe').textContent = splitWork.status || '-';
+  $('splitWorkLatency').textContent = splitWork.latencyMs != null ? `${splitWork.latencyMs}ms` : '-';
+  $('splitWorkLastOk').textContent = splitWork.lastOkAt || '-';
+  classCard('[data-key="splitWork"]', scoreLevel(workScore));
+
+  const avgScore = Math.round((mainScore + workScore) / 2);
+  classBadge('badge-agent-split', scoreLevel(avgScore), `${avgScore}%`);
 
   $('mReq').textContent = String(snapshot.metrics.llmRequest5m || 0);
   $('mSend').textContent = String(snapshot.metrics.sendOk5m || 0);

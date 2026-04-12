@@ -16,6 +16,7 @@
 
       <nav class="nav" id="moduleNav">
         <a href="#module-overview" data-module="overview" class="nav-item active"><span>Overview</span><b id="badge-overview" class="badge">-</b></a>
+        <a href="#module-agent-split" data-module="agent-split" class="nav-item"><span>Agent Split</span><b id="badge-agent-split" class="badge">-</b></a>
         <a href="#module-agents" data-module="agents" class="nav-item"><span>Agents</span><b id="badge-agents" class="badge">-</b></a>
         <a href="#module-activity" data-module="activity" class="nav-item"><span>Activity</span><b id="badge-activity" class="badge">-</b></a>
         <a href="#module-channels" data-module="channels" class="nav-item"><span>Channels</span><b id="badge-channels" class="badge">-</b></a>
@@ -52,6 +53,37 @@
           <article class="card" data-key="tgDaily"><h4>Telegram Daily getMe</h4><p class="value" id="tgDaily">-</p></article>
           <article class="card" data-key="tgWork"><h4>Telegram Work getMe</h4><p class="value" id="tgWork">-</p></article>
         </section>
+      </section>
+
+      <section class="module" id="module-agent-split">
+        <div class="module-head">
+          <h3>Agent Split</h3>
+          <p class="muted">按 agent 独立监控链路（main/daily 与 work）</p>
+        </div>
+        <div class="split">
+          <article class="card" data-key="splitMain">
+            <h4>main (daily)</h4>
+            <p class="value" id="splitMainScore">-</p>
+            <p class="detail" id="splitMainDetail">-</p>
+            <div class="mini-grid">
+              <div>channel: <b id="splitMainChannel">-</b></div>
+              <div>probe: <b id="splitMainProbe">-</b></div>
+              <div>latency: <b id="splitMainLatency">-</b></div>
+              <div>last ok: <b id="splitMainLastOk">-</b></div>
+            </div>
+          </article>
+          <article class="card" data-key="splitWork">
+            <h4>work</h4>
+            <p class="value" id="splitWorkScore">-</p>
+            <p class="detail" id="splitWorkDetail">-</p>
+            <div class="mini-grid">
+              <div>channel: <b id="splitWorkChannel">-</b></div>
+              <div>probe: <b id="splitWorkProbe">-</b></div>
+              <div>latency: <b id="splitWorkLatency">-</b></div>
+              <div>last ok: <b id="splitWorkLastOk">-</b></div>
+            </div>
+          </article>
+        </div>
       </section>
 
       <section class="module" id="module-agents">

@@ -297,6 +297,54 @@ function buildConfigSummary(env, cfg) {
   };
 }
 
+function buildAgentSplit() {
+  function one(agentId, channelName, channelCode, hasKey, hasToken) {
+    const probe = state.agents[agentId] || {};
+    const checks = [
+      state.services.gateway === "active",
+      state.services.singbox === "active",
+      state.network.proxyPortOpen === true,
+      state.network.openaiHttpCode === 200,
+      channelCode === 200,
+      probe.status === "ok",
+      Boolean(hasKey),
+      Boolean(hasToken)
+    ];
+    const passCount = checks.filter(Boolean).length;
+    const score = Math.round((passCount / checks.length) * 100);
+
+    return {
+      agentId,
+      status: probe.status || "unknown",
+      model: probe.detail || "-",
+      latencyMs: probe.latencyMs ?? null,
+      lastProbeAt: probe.lastProbeAt || null,
+      lastOkAt: probe.lastOkAt || null,
+      score,
+      chain: {
+        gateway: state.services.gateway === "active",
+        singbox: state.services.singbox === "active",
+        proxyOpen: state.network.proxyPortOpen === true,
+        openaiRelay: state.network.openaiHttpCode === 200,
+        telegram: channelCode === 200,
+        probe: probe.status === "ok",
+        apiKey: Boolean(hasKey),
+        telegramToken: Boolean(hasToken)
+      },
+      channel: {
+        name: channelName,
+        httpCode: channelCode,
+        state: channelCode === 200 ? "ok" : "error"
+      }
+    };
+  }
+
+  return {
+    main: one("main", "tg_daily", state.network.telegramDaily, state.config.hasDailyKey, state.config.hasDailyToken),
+    work: one("work", "tg_work", state.network.telegramWork, state.config.hasWorkKey, state.config.hasWorkToken)
+  };
+}
+
 function buildStatsAll() {
   const mainOk = state.agents.main.status === "ok";
   const workOk = state.agents.work.status === "ok";
@@ -318,6 +366,7 @@ function buildStatsAll() {
       okCount: [mainOk, workOk].filter(Boolean).length,
       total: 2
     },
+    agentsSplit: buildAgentSplit(),
     channels: {
       dailyCode: state.network.telegramDaily,
       workCode: state.network.telegramWork,
@@ -511,6 +560,10 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "GET" && parsed.pathname === "/api/stats-all") {
     return sendJson(res, 200, buildStatsAll());
+  }
+
+  if (req.method === "GET" && parsed.pathname === "/api/agents-split") {
+    return sendJson(res, 200, buildAgentSplit());
   }
 
   if (req.method === "GET" && parsed.pathname === "/api/system") {
