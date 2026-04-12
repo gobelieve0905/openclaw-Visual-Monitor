@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenClaw Health Console</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>OpenClaw Console</h1>
+        <p id="updatedAtSide" class="muted">更新时间: -</p>
+      </div>
+
+      <nav class="nav" id="moduleNav">
+        <a href="#module-overview" data-module="overview" class="nav-item active"><span>Overview</span><b id="badge-overview" class="badge">-</b></a>
+        <a href="#module-agents" data-module="agents" class="nav-item"><span>Agents</span><b id="badge-agents" class="badge">-</b></a>
+        <a href="#module-activity" data-module="activity" class="nav-item"><span>Activity</span><b id="badge-activity" class="badge">-</b></a>
+        <a href="#module-channels" data-module="channels" class="nav-item"><span>Channels</span><b id="badge-channels" class="badge">-</b></a>
+        <a href="#module-services" data-module="services" class="nav-item"><span>Services</span><b id="badge-services" class="badge">-</b></a>
+        <a href="#module-errors" data-module="errors" class="nav-item"><span>Errors</span><b id="badge-errors" class="badge">-</b></a>
+        <a href="#module-events" data-module="events" class="nav-item"><span>Events</span><b id="badge-events" class="badge">-</b></a>
+        <a href="#module-system" data-module="system" class="nav-item"><span>System</span><b id="badge-system" class="badge">-</b></a>
+      </nav>
+
+      <div class="sidebar-foot muted">
+        <div>Gateway: <span id="sideGateway">-</span></div>
+        <div>sing-box: <span id="sideSingbox">-</span></div>
+        <div>Overall: <span id="sideOverall">-</span></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="top">
+        <h2>OpenClaw Agent Health Dashboard</h2>
+        <div id="updatedAt" class="muted">更新时间: -</div>
+      </header>
+
+      <section class="module" id="module-overview">
+        <div class="module-head">
+          <h3>Overview</h3>
+          <p class="muted">全链路健康总览</p>
+        </div>
+        <section class="grid" id="cards">
+          <article class="card" data-key="overall"><h4>Overall</h4><p class="value" id="overall">-</p><p class="detail" id="overallReason">-</p></article>
+          <article class="card" data-key="gateway"><h4>Gateway</h4><p class="value" id="gateway">-</p></article>
+          <article class="card" data-key="singbox"><h4>sing-box</h4><p class="value" id="singbox">-</p></article>
+          <article class="card" data-key="proxy"><h4>Proxy 127.0.0.1:7890</h4><p class="value" id="proxy">-</p></article>
+          <article class="card" data-key="openai"><h4>OpenAI Relay /models</h4><p class="value" id="openai">-</p></article>
+          <article class="card" data-key="tgDaily"><h4>Telegram Daily getMe</h4><p class="value" id="tgDaily">-</p></article>
+          <article class="card" data-key="tgWork"><h4>Telegram Work getMe</h4><p class="value" id="tgWork">-</p></article>
+        </section>
+      </section>
+
+      <section class="module" id="module-agents">
+        <div class="module-head">
+          <h3>Agents</h3>
+          <p class="muted">work / daily 探针状态与延迟</p>
+        </div>
+        <div class="split">
+          <article class="card" data-key="agentMain"><h4>Agent main(daily)</h4><p class="value" id="agentMain">-</p><p class="detail" id="agentMainDetail">-</p></article>
+          <article class="card" data-key="agentWork"><h4>Agent work</h4><p class="value" id="agentWork">-</p><p class="detail" id="agentWorkDetail">-</p></article>
+        </div>
+      </section>
+
+      <section class="module" id="module-activity">
+        <div class="module-head">
+          <h3>Activity</h3>
+          <p class="muted">5分钟内消息和请求活动</p>
+        </div>
+        <div class="metrics">
+          <div><span>LLM request</span><b id="mReq">0</b></div>
+          <div><span>sendMessage ok</span><b id="mSend">0</b></div>
+          <div><span>LLM failed</span><b id="mLlmFail">0</b></div>
+        </div>
+      </section>
+
+      <section class="module" id="module-channels">
+        <div class="module-head">
+          <h3>Channels</h3>
+          <p class="muted">Telegram 双账号链路状态</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Channel</th><th>HTTP</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td>tg_daily</td><td id="rowDailyCode">-</td><td id="rowDailyState">-</td></tr>
+              <tr><td>tg_work</td><td id="rowWorkCode">-</td><td id="rowWorkState">-</td></tr>
+              <tr><td>proxy</td><td colspan="2" id="rowProxyUrl">-</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="module" id="module-services">
+        <div class="module-head">
+          <h3>Services</h3>
+          <p class="muted">基础服务与配置检查</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Service / Config</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td>openclaw-gateway.service</td><td id="rowGateway">-</td></tr>
+              <tr><td>sing-box.service</td><td id="rowSingbox">-</td></tr>
+              <tr><td>proxy port 7890</td><td id="rowProxy">-</td></tr>
+              <tr><td>OPENAI_API_KEY_DAILY</td><td id="rowKeyDaily">-</td></tr>
+              <tr><td>OPENAI_API_KEY_WORK</td><td id="rowKeyWork">-</td></tr>
+              <tr><td>TELEGRAM_TOKEN_DAILY</td><td id="rowTokenDaily">-</td></tr>
+              <tr><td>TELEGRAM_TOKEN_WORK</td><td id="rowTokenWork">-</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="module" id="module-errors">
+        <div class="module-head">
+          <h3>Errors</h3>
+          <p class="muted">最近5分钟错误指标 + 健康趋势</p>
+        </div>
+        <div class="metrics">
+          <div><span>network errors</span><b id="mNet">0</b></div>
+          <div><span>timeout errors</span><b id="mTimeout">0</b></div>
+          <div><span>failover</span><b id="mFailover">0</b></div>
+        </div>
+        <canvas id="trend" width="1200" height="220"></canvas>
+      </section>
+
+      <section class="module" id="module-events">
+        <div class="module-head">
+          <h3>Events</h3>
+          <p class="muted">近期错误/告警/发送事件流</p>
+        </div>
+        <div id="events" class="events"></div>
+      </section>
+
+      <section class="module" id="module-system">
+        <div class="module-head">
+          <h3>System</h3>
+          <p class="muted">服务器资源状态</p>
+        </div>
+        <div class="metrics">
+          <div><span>Load 1m</span><b id="sysLoad1">0</b></div>
+          <div><span>Mem Used</span><b id="sysMem">0%</b></div>
+          <div><span>Disk Used</span><b id="sysDisk">0%</b></div>
+        </div>
+        <p class="muted">Uptime: <span id="sysUptime">-</span></p>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
