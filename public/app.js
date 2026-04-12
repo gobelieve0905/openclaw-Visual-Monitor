@@ -21,7 +21,7 @@ function classBadge(id, level, text) {
 }
 
 function overallText(level) {
-  return level === 'green' ? 'GREEN' : level === 'yellow' ? 'YELLOW' : level === 'red' ? 'RED' : 'UNKNOWN';
+  return level === 'green' ? '正常' : level === 'yellow' ? '降级' : level === 'red' ? '故障' : '未知';
 }
 
 function scoreLevel(score) {
@@ -31,7 +31,28 @@ function scoreLevel(score) {
 }
 
 function yn(flag) {
-  return flag ? 'ok' : 'missing';
+  return flag ? '已配置' : '缺失';
+}
+
+function translateOverallReason(reason) {
+  if (!reason) return '-';
+  const map = [
+    ['all checks passed', '所有检查通过'],
+    ['warming up: waiting first agent probes', '预热中：等待 Agent 首次探针'],
+    ['critical:', '严重异常:'],
+    ['degraded:', '服务降级:'],
+    ['agents unhealthy', 'Agent 不健康'],
+    ['partial agent degradation', '部分 Agent 降级'],
+    ['gateway', 'Gateway'],
+    ['sing-box', 'sing-box'],
+    ['proxy-port', '代理端口'],
+    ['openai-relay', 'OpenAI 中转'],
+    ['telegram-daily', 'Telegram Daily'],
+    ['telegram-work', 'Telegram Work']
+  ];
+  let out = String(reason);
+  for (const [from, to] of map) out = out.replaceAll(from, to);
+  return out;
 }
 
 function updateNavByScroll() {
@@ -95,7 +116,7 @@ function update(snapshot, stats) {
 
   const overall = snapshot.overall?.level || 'unknown';
   $('overall').textContent = overallText(overall);
-  $('overallReason').textContent = snapshot.overall?.reason || '-';
+  $('overallReason').textContent = translateOverallReason(snapshot.overall?.reason || '-');
   classCard('[data-key="overall"]', overall === 'green' ? 'ok' : overall === 'yellow' ? 'warn' : 'bad');
   classBadge('badge-overview', overall === 'green' ? 'ok' : overall === 'yellow' ? 'warn' : 'bad', overallText(overall));
   $('sideOverall').textContent = overallText(overall);
@@ -110,7 +131,7 @@ function update(snapshot, stats) {
   classCard('[data-key="singbox"]', sbOk ? 'ok' : 'bad');
   $('sideSingbox').textContent = snapshot.services.singbox || '-';
 
-  $('proxy').textContent = snapshot.network.proxyPortOpen ? 'open' : 'closed';
+  $('proxy').textContent = snapshot.network.proxyPortOpen ? '已监听' : '未监听';
   classCard('[data-key="proxy"]', snapshot.network.proxyPortOpen ? 'ok' : 'bad');
 
   $('openai').textContent = String(snapshot.network.openaiHttpCode || 0);
@@ -123,15 +144,15 @@ function update(snapshot, stats) {
   classCard('[data-key="tgWork"]', snapshot.network.telegramWork === 200 ? 'ok' : 'bad');
 
   $('agentMain').textContent = snapshot.agents.main.status || '-';
-  $('agentMainDetail').textContent = `latency=${snapshot.agents.main.latencyMs ?? '-'}ms, ${snapshot.agents.main.detail || '-'}`;
+  $('agentMainDetail').textContent = `延迟=${snapshot.agents.main.latencyMs ?? '-'}ms, ${snapshot.agents.main.detail || '-'}`;
   classCard('[data-key="agentMain"]', snapshot.agents.main.status === 'ok' ? 'ok' : snapshot.agents.main.status === 'unknown' ? 'warn' : 'bad');
 
   $('agentWork').textContent = snapshot.agents.work.status || '-';
-  $('agentWorkDetail').textContent = `latency=${snapshot.agents.work.latencyMs ?? '-'}ms, ${snapshot.agents.work.detail || '-'}`;
+  $('agentWorkDetail').textContent = `延迟=${snapshot.agents.work.latencyMs ?? '-'}ms, ${snapshot.agents.work.detail || '-'}`;
   classCard('[data-key="agentWork"]', snapshot.agents.work.status === 'ok' ? 'ok' : snapshot.agents.work.status === 'unknown' ? 'warn' : 'bad');
 
   const agentsOk = snapshot.agents.main.status === 'ok' && snapshot.agents.work.status === 'ok';
-  classBadge('badge-agents', agentsOk ? 'ok' : 'warn', agentsOk ? 'OK' : 'DEGRADED');
+  classBadge('badge-agents', agentsOk ? 'ok' : 'warn', agentsOk ? '正常' : '降级');
 
   const split = stats?.agentsSplit || {};
   const splitMain = split.main || {};
@@ -142,7 +163,7 @@ function update(snapshot, stats) {
   $('splitMainScore').textContent = `${mainScore}%`;
   $('splitMainDetail').textContent = splitMain.model || '-';
   $('splitMainChannel').textContent = `${splitMain.channel?.name || '-'} (${splitMain.channel?.httpCode ?? 0})`;
-  $('splitMainProbe').textContent = splitMain.status || '-';
+  $('splitMainProbe').textContent = splitMain.status === 'ok' ? '正常' : splitMain.status === 'error' ? '异常' : (splitMain.status || '-');
   $('splitMainLatency').textContent = splitMain.latencyMs != null ? `${splitMain.latencyMs}ms` : '-';
   $('splitMainLastOk').textContent = splitMain.lastOkAt || '-';
   classCard('[data-key="splitMain"]', scoreLevel(mainScore));
@@ -150,7 +171,7 @@ function update(snapshot, stats) {
   $('splitWorkScore').textContent = `${workScore}%`;
   $('splitWorkDetail').textContent = splitWork.model || '-';
   $('splitWorkChannel').textContent = `${splitWork.channel?.name || '-'} (${splitWork.channel?.httpCode ?? 0})`;
-  $('splitWorkProbe').textContent = splitWork.status || '-';
+  $('splitWorkProbe').textContent = splitWork.status === 'ok' ? '正常' : splitWork.status === 'error' ? '异常' : (splitWork.status || '-');
   $('splitWorkLatency').textContent = splitWork.latencyMs != null ? `${splitWork.latencyMs}ms` : '-';
   $('splitWorkLastOk').textContent = splitWork.lastOkAt || '-';
   classCard('[data-key="splitWork"]', scoreLevel(workScore));
@@ -164,15 +185,15 @@ function update(snapshot, stats) {
   classBadge('badge-activity', (snapshot.metrics.llmFailed5m || 0) === 0 ? 'ok' : 'warn', 'ACT');
 
   $('rowDailyCode').textContent = String(snapshot.network.telegramDaily || 0);
-  $('rowDailyState').textContent = snapshot.network.telegramDaily === 200 ? 'ok' : 'error';
+  $('rowDailyState').textContent = snapshot.network.telegramDaily === 200 ? '正常' : '异常';
   $('rowWorkCode').textContent = String(snapshot.network.telegramWork || 0);
-  $('rowWorkState').textContent = snapshot.network.telegramWork === 200 ? 'ok' : 'error';
+  $('rowWorkState').textContent = snapshot.network.telegramWork === 200 ? '正常' : '异常';
   $('rowProxyUrl').textContent = stats?.channels?.proxy || snapshot.config.telegramProxy || '-';
   classBadge('badge-channels', snapshot.network.telegramDaily === 200 && snapshot.network.telegramWork === 200 ? 'ok' : 'bad', 'TG');
 
   $('rowGateway').textContent = snapshot.services.gateway || '-';
   $('rowSingbox').textContent = snapshot.services.singbox || '-';
-  $('rowProxy').textContent = snapshot.network.proxyPortOpen ? 'open' : 'closed';
+  $('rowProxy').textContent = snapshot.network.proxyPortOpen ? '已监听' : '未监听';
   $('rowKeyDaily').textContent = yn(snapshot.config.hasDailyKey);
   $('rowKeyWork').textContent = yn(snapshot.config.hasWorkKey);
   $('rowTokenDaily').textContent = yn(snapshot.config.hasDailyToken);
