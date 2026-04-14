@@ -75,6 +75,12 @@ body {
   background: #edf4ff;
   transform: translateX(2px);
 }
+.side-nav a.active {
+  border-color: #7ea3d6;
+  background: #dfeeff;
+  color: #113f86;
+  font-weight: 600;
+}
 .side-kv { margin-top: 18px; font-size: 12px; color: var(--muted); }
 .side-kv b { display: block; margin-top: 6px; color: var(--text); }
 .side-note {
@@ -118,6 +124,9 @@ body {
 }
 .module + .module {
   margin-top: 22px;
+}
+.module-hidden {
+  display: none !important;
 }
 .module h3 {
   margin: 0 0 12px;

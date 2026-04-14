@@ -17,14 +17,14 @@
         </div>
       </div>
       <nav class="side-nav">
-        <a href="#module-overview">总览</a>
-        <a href="#module-openclaw">OpenClaw</a>
-        <a href="#module-hermes">Hermes</a>
-        <a href="#module-models">模型</a>
-        <a href="#module-sessions">会话</a>
-        <a href="#module-stats">统计</a>
-        <a href="#module-skills">技能</a>
-        <a href="#module-alerts">告警</a>
+        <a href="#overview" data-view-link="overview">总览</a>
+        <a href="#openclaw" data-view-link="openclaw">OpenClaw</a>
+        <a href="#hermes" data-view-link="hermes">Hermes</a>
+        <a href="#models" data-view-link="models">模型</a>
+        <a href="#sessions" data-view-link="sessions">会话</a>
+        <a href="#stats" data-view-link="stats">统计</a>
+        <a href="#skills" data-view-link="skills">技能</a>
+        <a href="#alerts" data-view-link="alerts">告警</a>
       </nav>
       <div class="side-kv">
         <div>更新时间</div>
@@ -42,7 +42,7 @@
         <span id="updatedAt">-</span>
       </header>
 
-      <section class="module module-overview" id="module-overview">
+      <section class="module module-overview" id="module-overview" data-view="overview">
         <h3><span class="module-tag">总览</span>系统全局视图</h3>
         <div class="overview-header">
           <article class="summary-chip" id="card-overall">
@@ -135,7 +135,7 @@
         </div>
       </section>
 
-      <section class="module module-openclaw" id="module-openclaw">
+      <section class="module module-openclaw" id="module-openclaw" data-view="openclaw">
         <h3><span class="module-tag">OpenClaw</span>具体状态</h3>
         <div class="table-wrap">
           <table>
@@ -163,7 +163,7 @@
         </div>
       </section>
 
-      <section class="module module-hermes" id="module-hermes">
+      <section class="module module-hermes" id="module-hermes" data-view="hermes">
         <h3><span class="module-tag">Hermes</span>具体状态</h3>
         <div class="table-wrap">
           <table>
@@ -208,7 +208,7 @@
         <div id="events" class="events"></div>
       </section>
 
-      <section class="module module-overview" id="module-models">
+      <section class="module module-overview" id="module-models" data-view="models">
         <h3><span class="module-tag">模型</span>Model List（去 Pixel）</h3>
         <div class="table-wrap">
           <table>
@@ -222,7 +222,7 @@
         </div>
       </section>
 
-      <section class="module module-openclaw" id="module-sessions">
+      <section class="module module-openclaw" id="module-sessions" data-view="sessions">
         <h3><span class="module-tag">会话</span>Session Management</h3>
         <div class="stats-grid">
           <article class="summary-chip"><label>OpenClaw 会话数</label><b id="ocSessionCount">-</b></article>
@@ -240,7 +240,7 @@
         </div>
       </section>
 
-      <section class="module module-hermes" id="module-stats">
+      <section class="module module-hermes" id="module-stats" data-view="stats">
         <h3><span class="module-tag">统计</span>Usage Stats</h3>
         <div class="stats-toolbar">
           <span class="muted">时间范围</span>
@@ -268,7 +268,7 @@
         </div>
       </section>
 
-      <section class="module module-overview" id="module-skills">
+      <section class="module module-overview" id="module-skills" data-view="skills">
         <h3><span class="module-tag">技能</span>Skill Management</h3>
         <div class="stats-grid">
           <article class="summary-chip"><label>OpenClaw 总技能</label><b id="ocSkillTotal">-</b></article>
@@ -288,7 +288,7 @@
         </div>
       </section>
 
-      <section class="module module-hermes" id="module-alerts">
+      <section class="module module-hermes" id="module-alerts" data-view="alerts">
         <h3><span class="module-tag">告警</span>Alert Center（按你的现网规则）</h3>
         <div class="table-wrap">
           <table>

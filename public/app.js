@@ -4,6 +4,8 @@ const $ = (id) => document.getElementById(id);
 const nodeTestState = {};
 const BJ_TZ = 'Asia/Shanghai';
 let trendRange = 'day';
+const VIEW_DEFAULT = 'overview';
+const VIEW_SET = new Set(['overview', 'openclaw', 'hermes', 'models', 'sessions', 'stats', 'skills', 'alerts']);
 
 function classByState(el, level) {
   if (!el) return;
@@ -275,6 +277,29 @@ function setApiStatus(id, ok) {
   if (!el) return;
   el.textContent = ok ? '正常' : '异常';
   classByState(el, ok ? 'ok' : 'bad');
+}
+
+function resolveViewFromHash() {
+  const raw = (window.location.hash || '').replace(/^#/, '').trim();
+  if (VIEW_SET.has(raw)) return raw;
+  return VIEW_DEFAULT;
+}
+
+function applyView(view) {
+  document.querySelectorAll('[data-view]').forEach((sec) => {
+    if (sec.getAttribute('data-view') === view) sec.classList.remove('module-hidden');
+    else sec.classList.add('module-hidden');
+  });
+  document.querySelectorAll('[data-view-link]').forEach((a) => {
+    if (a.getAttribute('data-view-link') === view) a.classList.add('active');
+    else a.classList.remove('active');
+  });
+}
+
+function initViewRouter() {
+  const update = () => applyView(resolveViewFromHash());
+  window.addEventListener('hashchange', update);
+  update();
 }
 
 function td(v, cls = '') {
@@ -570,6 +595,8 @@ async function boot() {
   if (hermesBtn) hermesBtn.addEventListener('click', async () => runAgentTest('hermes'));
   if (ocRefreshBtn) ocRefreshBtn.addEventListener('click', async () => refreshNow('ocRefreshBtn'));
   if (hermesRefreshBtn) hermesRefreshBtn.addEventListener('click', async () => refreshNow('hermesRefreshBtn'));
+
+  initViewRouter();
 
   await refreshOnce();
   setInterval(() => refreshOnce().catch(() => {}), 15000);
