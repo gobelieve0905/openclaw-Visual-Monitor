@@ -25,6 +25,7 @@ const HERMES_ENV_FILE = path.join(HERMES_HOME, ".env");
 const HERMES_BIN = "/home/ubuntu/.hermes/hermes-agent/venv/bin/hermes";
 const HISTORY_FILE = path.join(__dirname, "data", "history.json");
 const PUBLIC_DIR = path.join(__dirname, "public");
+const REVIEW_CACHE_TTL_MS = Number(process.env.REVIEW_CACHE_TTL_MS || 60000);
 
 const clients = new Set();
 const state = {
@@ -60,6 +61,12 @@ const state = {
 };
 
 const history = [];
+const reviewCache = {
+  models: { at: 0, data: null },
+  sessions: { at: 0, data: null },
+  skills: { at: 0, data: null },
+  alerts: { at: 0, data: null }
+};
 
 function run(cmd, timeoutMs = 12000) {
   return new Promise((resolve) => {
@@ -73,6 +80,25 @@ function run(cmd, timeoutMs = 12000) {
       });
     });
   });
+}
+
+function tryParseJson(text, fallback = null) {
+  try {
+    return JSON.parse(text || "");
+  } catch (_) {
+    return fallback;
+  }
+}
+
+async function runOpenclawJson(cmd, timeoutMs = 25000) {
+  const full = `bash -lc "export PATH=${OPENCLAW_PATH}; timeout 25 ${OPENCLAW_BIN} ${cmd} --json"`;
+  const r = await run(full, timeoutMs);
+  if (!r.ok) return null;
+  return tryParseJson(r.stdout, null);
+}
+
+function cacheValid(entry) {
+  return entry && entry.data && (Date.now() - entry.at < REVIEW_CACHE_TTL_MS);
 }
 
 function parseEnvFile(text) {
@@ -559,6 +585,156 @@ function buildStatsAll() {
   };
 }
 
+async function getReviewModels() {
+  if (cacheValid(reviewCache.models)) return reviewCache.models.data;
+
+  const [openclawList, hermesDump] = await Promise.all([
+    runOpenclawJson("models list"),
+    run(`bash -lc "source /home/ubuntu/.hermes/hermes-agent/venv/bin/activate; timeout 15 ${HERMES_BIN} dump"`, 20000)
+  ]);
+
+  const ocModels = Array.isArray(openclawList?.models) ? openclawList.models : [];
+  const hermesText = `${hermesDump.stdout || ""}\n${hermesDump.stderr || ""}`;
+  const hModel = ((hermesText.match(/model:\s+([^\n]+)/) || [])[1] || "").trim();
+  const hProvider = ((hermesText.match(/provider:\s+([^\n]+)/) || [])[1] || "").trim();
+
+  const data = {
+    updatedAt: safeIso(),
+    openclaw: {
+      count: ocModels.length,
+      defaultModel: (ocModels.find((m) => Array.isArray(m.tags) && m.tags.includes("default")) || ocModels[0] || {}).key || "-",
+      models: ocModels.slice(0, 30).map((m) => ({
+        key: m.key || "-",
+        name: m.name || m.key || "-",
+        contextWindow: m.contextWindow || 0,
+        available: !!m.available,
+        tags: Array.isArray(m.tags) ? m.tags : []
+      }))
+    },
+    hermes: {
+      model: hModel || "-",
+      provider: hProvider || "-",
+      dumpOk: !!hermesDump.ok
+    }
+  };
+
+  reviewCache.models = { at: Date.now(), data };
+  return data;
+}
+
+async function getReviewSessions() {
+  if (cacheValid(reviewCache.sessions)) return reviewCache.sessions.data;
+
+  const openclawSessions = await runOpenclawJson("sessions --all-agents");
+  const ocItems = Array.isArray(openclawSessions?.sessions) ? openclawSessions.sessions : [];
+
+  let hermesSessionsRaw = {};
+  try {
+    hermesSessionsRaw = tryParseJson(await fsp.readFile("/home/ubuntu/.hermes/sessions/sessions.json", "utf8"), {}) || {};
+  } catch (_) {}
+  const hItems = Object.values(hermesSessionsRaw || {}).map((x) => ({
+    key: x.session_key || x.session_id || "-",
+    updatedAt: x.updated_at || null,
+    platform: x.platform || (x.origin && x.origin.platform) || "-",
+    chatType: x.chat_type || (x.origin && x.origin.chat_type) || "-",
+    displayName: x.display_name || (x.origin && x.origin.chat_name) || "-",
+    totalTokens: Number(x.total_tokens || 0)
+  }));
+
+  const data = {
+    updatedAt: safeIso(),
+    openclaw: {
+      count: Number(openclawSessions?.count || ocItems.length || 0),
+      items: ocItems.slice(0, 20).map((x) => ({
+        key: x.key || "-",
+        updatedAt: x.updatedAt || null,
+        kind: x.kind || "-",
+        model: x.model || "-",
+        totalTokens: Number(x.totalTokens || 0)
+      }))
+    },
+    hermes: {
+      count: hItems.length,
+      items: hItems.slice(0, 20)
+    }
+  };
+
+  reviewCache.sessions = { at: Date.now(), data };
+  return data;
+}
+
+async function getReviewSkills() {
+  if (cacheValid(reviewCache.skills)) return reviewCache.skills.data;
+
+  const ocSkills = await runOpenclawJson("skills list");
+  const ocList = Array.isArray(ocSkills?.skills) ? ocSkills.skills : [];
+
+  let hCategories = [];
+  let hTotal = 0;
+  try {
+    const base = "/home/ubuntu/.hermes/skills";
+    const cats = await fsp.readdir(base, { withFileTypes: true });
+    for (const c of cats) {
+      if (!c.isDirectory()) continue;
+      const full = path.join(base, c.name);
+      const items = await fsp.readdir(full, { withFileTypes: true });
+      const count = items.filter((x) => x.isDirectory()).length;
+      if (count > 0) {
+        hCategories.push({ category: c.name, count });
+        hTotal += count;
+      }
+    }
+  } catch (_) {}
+
+  const sourceCounts = {};
+  for (const s of ocList) {
+    const k = s.source || "unknown";
+    sourceCounts[k] = (sourceCounts[k] || 0) + 1;
+  }
+
+  const data = {
+    updatedAt: safeIso(),
+    openclaw: {
+      total: ocList.length,
+      eligible: ocList.filter((x) => x.eligible).length,
+      bundled: ocList.filter((x) => x.bundled).length,
+      sources: sourceCounts
+    },
+    hermes: {
+      total: hTotal,
+      categories: hCategories.sort((a, b) => b.count - a.count).slice(0, 20)
+    }
+  };
+
+  reviewCache.skills = { at: Date.now(), data };
+  return data;
+}
+
+async function getReviewAlerts() {
+  if (cacheValid(reviewCache.alerts)) return reviewCache.alerts.data;
+  const alerts = [];
+  const now = safeIso();
+
+  if (state.services.openclawGateway !== "active") alerts.push({ level: "error", code: "OPENCLAW_GATEWAY_DOWN", message: "OpenClaw 网关未运行", at: now });
+  if (state.services.hermesGateway !== "active") alerts.push({ level: "error", code: "HERMES_GATEWAY_DOWN", message: "Hermes 网关未运行", at: now });
+  if (state.services.singbox !== "active") alerts.push({ level: "error", code: "SINGBOX_DOWN", message: "sing-box 未运行", at: now });
+  if (!state.network.proxyPortOpen) alerts.push({ level: "error", code: "PROXY_PORT_CLOSED", message: "127.0.0.1:7890 未监听", at: now });
+  if (state.network.openclawTelegram !== 200) alerts.push({ level: "warn", code: "OPENCLAW_TG_DEGRADED", message: `OpenClaw Telegram=${state.network.openclawTelegram || 0}`, at: now });
+  if (state.network.hermesTelegram !== 200) alerts.push({ level: "warn", code: "HERMES_TG_DEGRADED", message: `Hermes Telegram=${state.network.hermesTelegram || 0}`, at: now });
+  if (state.network.openclawOpenaiHttpCode !== 200) alerts.push({ level: "warn", code: "OPENCLAW_LLM_DEGRADED", message: `OpenClaw LLM=${state.network.openclawOpenaiHttpCode || 0}`, at: now });
+  if (state.network.hermesOpenaiHttpCode !== 200) alerts.push({ level: "warn", code: "HERMES_LLM_DEGRADED", message: `Hermes LLM=${state.network.hermesOpenaiHttpCode || 0}`, at: now });
+  if (state.metrics.llmFailed5m > 0) alerts.push({ level: "warn", code: "LLM_FAILED_5M", message: `最近5分钟 LLM失败 ${state.metrics.llmFailed5m} 次`, at: now });
+  if (state.metrics.networkErrors5m > 0) alerts.push({ level: "warn", code: "NETWORK_ERRORS_5M", message: `最近5分钟 网络错误 ${state.metrics.networkErrors5m} 次`, at: now });
+
+  const data = {
+    updatedAt: now,
+    count: alerts.length,
+    alerts: alerts.slice(0, 30)
+  };
+  reviewCache.alerts = { at: Date.now(), data };
+  return data;
+}
+
 async function updateSnapshot() {
   const [ctx, services, proxyPortOpen, openclawPortOpen, hermesPortOpen, metrics, system] = await Promise.all([
     loadConfigAndEnv(),
@@ -813,6 +989,38 @@ const server = http.createServer(async (req, res) => {
     const limit = Math.max(1, Math.min(200, Number(parsed.query.limit || 60)));
     const items = await getRecentEvents(limit);
     return sendJson(res, 200, { items });
+  }
+
+  if (req.method === "GET" && parsed.pathname === "/api/review/models") {
+    return sendJson(res, 200, await getReviewModels());
+  }
+
+  if (req.method === "GET" && parsed.pathname === "/api/review/sessions") {
+    return sendJson(res, 200, await getReviewSessions());
+  }
+
+  if (req.method === "GET" && parsed.pathname === "/api/review/skills") {
+    return sendJson(res, 200, await getReviewSkills());
+  }
+
+  if (req.method === "GET" && parsed.pathname === "/api/review/alerts") {
+    return sendJson(res, 200, await getReviewAlerts());
+  }
+
+  if (req.method === "GET" && parsed.pathname === "/api/review/overview") {
+    const [models, sessions, skills, alerts] = await Promise.all([
+      getReviewModels(),
+      getReviewSessions(),
+      getReviewSkills(),
+      getReviewAlerts()
+    ]);
+    return sendJson(res, 200, {
+      updatedAt: safeIso(),
+      models,
+      sessions,
+      skills,
+      alerts
+    });
   }
 
   if (req.method === "GET" && parsed.pathname === "/api/stream") {

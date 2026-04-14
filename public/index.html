@@ -20,6 +20,11 @@
         <a href="#module-overview">总览</a>
         <a href="#module-openclaw">OpenClaw</a>
         <a href="#module-hermes">Hermes</a>
+        <a href="#module-models">模型</a>
+        <a href="#module-sessions">会话</a>
+        <a href="#module-stats">统计</a>
+        <a href="#module-skills">技能</a>
+        <a href="#module-alerts">告警</a>
       </nav>
       <div class="side-kv">
         <div>更新时间</div>
@@ -201,6 +206,82 @@
         </div>
         <h3 class="sub-title">事件流</h3>
         <div id="events" class="events"></div>
+      </section>
+
+      <section class="module module-overview" id="module-models">
+        <h3><span class="module-tag">模型</span>Model List（去 Pixel）</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>系统</th><th>模型</th><th>Provider</th><th>上下文窗口</th><th>状态</th></tr>
+            </thead>
+            <tbody id="modelsTbody">
+              <tr><td colspan="5">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="module module-openclaw" id="module-sessions">
+        <h3><span class="module-tag">会话</span>Session Management</h3>
+        <div class="stats-grid">
+          <article class="summary-chip"><label>OpenClaw 会话数</label><b id="ocSessionCount">-</b></article>
+          <article class="summary-chip"><label>Hermes 会话数</label><b id="hSessionCount">-</b></article>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>系统</th><th>会话键</th><th>类型</th><th>模型/平台</th><th>Token</th><th>更新时间</th></tr>
+            </thead>
+            <tbody id="sessionsTbody">
+              <tr><td colspan="6">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="module module-hermes" id="module-stats">
+        <h3><span class="module-tag">统计</span>Usage Stats</h3>
+        <div class="stats-grid">
+          <article class="summary-chip"><label>5分钟 LLM 请求</label><b id="mReq">-</b></article>
+          <article class="summary-chip"><label>5分钟 LLM 失败</label><b id="mLlmFail">-</b></article>
+          <article class="summary-chip"><label>5分钟 网络错误</label><b id="mNetErr">-</b></article>
+          <article class="summary-chip"><label>系统负载 / 内存</label><b id="mSysLoad">-</b></article>
+        </div>
+      </section>
+
+      <section class="module module-overview" id="module-skills">
+        <h3><span class="module-tag">技能</span>Skill Management</h3>
+        <div class="stats-grid">
+          <article class="summary-chip"><label>OpenClaw 总技能</label><b id="ocSkillTotal">-</b></article>
+          <article class="summary-chip"><label>OpenClaw 可用技能</label><b id="ocSkillEligible">-</b></article>
+          <article class="summary-chip"><label>Hermes 总技能</label><b id="hSkillTotal">-</b></article>
+          <article class="summary-chip"><label>Hermes 分类数</label><b id="hSkillCats">-</b></article>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Hermes 分类</th><th>技能数量</th></tr>
+            </thead>
+            <tbody id="skillsTbody">
+              <tr><td colspan="2">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="module module-hermes" id="module-alerts">
+        <h3><span class="module-tag">告警</span>Alert Center（按你的现网规则）</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>级别</th><th>代码</th><th>内容</th><th>时间</th></tr>
+            </thead>
+            <tbody id="alertsTbody">
+              <tr><td colspan="4">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
   </div>

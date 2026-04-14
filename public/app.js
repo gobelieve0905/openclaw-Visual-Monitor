@@ -276,6 +276,65 @@ function setApiStatus(id, ok) {
   classByState(el, ok ? 'ok' : 'bad');
 }
 
+function td(v, cls = '') {
+  return `<td class="${cls}">${v == null ? '-' : String(v)}</td>`;
+}
+
+function renderModels(data) {
+  const body = $('modelsTbody');
+  if (!body) return;
+  const rows = [];
+  const oc = data?.openclaw || {};
+  const ocModels = Array.isArray(oc.models) ? oc.models : [];
+  ocModels.forEach((m) => {
+    rows.push(
+      `<tr>${td('OpenClaw')}${td(m.name || m.key || '-')}${td('openai')}${td(m.contextWindow || '-')}${td(m.available ? '可用' : '异常', m.available ? 'ok' : 'bad')}</tr>`
+    );
+  });
+  const h = data?.hermes || {};
+  rows.push(
+    `<tr>${td('Hermes')}${td(h.model || '-')}${td(h.provider || '-')}${td('-')}${td(h.dumpOk ? '可用' : '异常', h.dumpOk ? 'ok' : 'bad')}</tr>`
+  );
+  body.innerHTML = rows.join('') || `<tr><td colspan="5">暂无数据</td></tr>`;
+}
+
+function renderSessions(data) {
+  setText('ocSessionCount', data?.openclaw?.count ?? '-');
+  setText('hSessionCount', data?.hermes?.count ?? '-');
+  const body = $('sessionsTbody');
+  if (!body) return;
+  const rows = [];
+  (data?.openclaw?.items || []).forEach((x) => {
+    rows.push(`<tr>${td('OpenClaw')}${td(x.key)}${td(x.kind || '-')}${td(x.model || '-')}${td(x.totalTokens ?? 0)}${td(fmtTs(x.updatedAt))}</tr>`);
+  });
+  (data?.hermes?.items || []).forEach((x) => {
+    rows.push(`<tr>${td('Hermes')}${td(x.key)}${td(x.chatType || '-')}${td(x.platform || '-')}${td(x.totalTokens ?? 0)}${td(fmtTs(x.updatedAt))}</tr>`);
+  });
+  body.innerHTML = rows.join('') || `<tr><td colspan="6">暂无会话数据</td></tr>`;
+}
+
+function renderSkills(data) {
+  setText('ocSkillTotal', data?.openclaw?.total ?? '-');
+  setText('ocSkillEligible', data?.openclaw?.eligible ?? '-');
+  setText('hSkillTotal', data?.hermes?.total ?? '-');
+  setText('hSkillCats', (data?.hermes?.categories || []).length);
+  const body = $('skillsTbody');
+  if (!body) return;
+  const rows = (data?.hermes?.categories || []).map((x) => `<tr>${td(x.category)}${td(x.count)}</tr>`);
+  body.innerHTML = rows.join('') || `<tr><td colspan="2">暂无技能数据</td></tr>`;
+}
+
+function renderAlerts(data) {
+  const body = $('alertsTbody');
+  if (!body) return;
+  const alerts = Array.isArray(data?.alerts) ? data.alerts : [];
+  if (alerts.length === 0) {
+    body.innerHTML = `<tr><td>${'info'}</td><td>NORMAL</td><td class="ok">当前无告警</td><td>${fmtTs(data?.updatedAt)}</td></tr>`;
+    return;
+  }
+  body.innerHTML = alerts.map((x) => `<tr>${td(x.level, x.level === 'error' ? 'bad' : 'warn')}${td(x.code || '-')}${td(x.message || '-')}${td(fmtTs(x.at))}</tr>`).join('');
+}
+
 function render(stats, health) {
   const updated = stats?.updatedAt || health?.updatedAt || '-';
   $('updatedAt').textContent = fmtTs(updated);
@@ -330,6 +389,13 @@ function render(stats, health) {
   classByState($('hLlm'), stateLevelByCode(hm.openaiCode));
   $('hModel').textContent = `${hm.model || '-'} / ${hm.provider || '-'}`;
 
+  setText('mReq', stats?.activity?.llmRequest5m ?? '-');
+  setText('mLlmFail', stats?.errors?.llmFailed5m ?? '-');
+  setText('mNetErr', stats?.errors?.networkErrors5m ?? '-');
+  const load = stats?.system?.load1 ?? 0;
+  const mem = stats?.system?.memUsedPct ?? 0;
+  setText('mSysLoad', `${load} / ${mem}%`);
+
   applyAgentTestState('openclaw');
   applyAgentTestState('hermes');
 }
@@ -369,6 +435,14 @@ async function refreshOnce() {
   } catch (_) {
     renderEvents([]);
   }
+
+  try {
+    const review = await fetchJson('/api/review/overview');
+    renderModels(review.models || {});
+    renderSessions(review.sessions || {});
+    renderSkills(review.skills || {});
+    renderAlerts(review.alerts || {});
+  } catch (_) {}
 
   if (stats || health) render(stats || {}, health || {});
   if (arch) renderArchitecture(arch);

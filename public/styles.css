@@ -173,6 +173,12 @@ body {
   grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 10px;
 }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
 .summary-chip {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -526,6 +532,7 @@ th {
     border-bottom: 1px solid var(--line);
   }
   .overview-header { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
   .shared-arch-grid { grid-template-columns: 1fr; }
   .agent-overview-grid { grid-template-columns: 1fr; }
   .agent-panel-head {
