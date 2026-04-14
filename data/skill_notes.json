@@ -1,0 +1,5 @@
+{
+  "openclaw": {
+    "healthcheck": "用于巡检 OpenClaw 与网关连通性"
+  }
+}

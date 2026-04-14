@@ -6,6 +6,7 @@ const BJ_TZ = 'Asia/Shanghai';
 let trendRange = 'day';
 const VIEW_DEFAULT = 'overview';
 const VIEW_SET = new Set(['overview', 'openclaw', 'hermes']);
+let openclawSkillItems = [];
 
 function classByState(el, level) {
   if (!el) return;
@@ -306,6 +307,15 @@ function td(v, cls = '') {
   return `<td class="${cls}">${v == null ? '-' : String(v)}</td>`;
 }
 
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatLabel(ts, range) {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return '-';
@@ -454,9 +464,61 @@ function renderSkills(data) {
   const ocList = $('ocSkillList');
   if (ocList) {
     const items = Array.isArray(data?.openclaw?.available) ? data.openclaw.available : [];
+    openclawSkillItems = items;
     ocList.innerHTML = items.length
-      ? items.map((x) => `<span class="skill-pill">${x.name} <small>(${x.source || 'unknown'})</small></span>`).join('')
+      ? items.map((x, idx) => {
+        const rawName = String(x.name || '-');
+        const name = esc(rawName);
+        const source = esc(x.source || 'unknown');
+        const purpose = esc(x.purpose || '-');
+        return `
+          <div class="skill-row">
+            <div class="skill-row-top">
+              <div class="skill-name">${name}</div>
+              <div class="skill-source">${source}</div>
+            </div>
+            <div class="skill-purpose">${purpose}</div>
+            <div class="skill-note-edit">
+              <input class="skill-note-input" id="ocSkillNoteInput-${idx}" value="${purpose}" />
+              <button class="skill-note-save" data-skill-idx="${idx}" data-skill-input-id="ocSkillNoteInput-${idx}">保存备注</button>
+              <span class="skill-note-msg" id="ocSkillNoteMsg-${idx}">-</span>
+            </div>
+          </div>
+        `;
+      }).join('')
       : '<span class="muted">暂无可用技能</span>';
+
+    ocList.querySelectorAll('.skill-note-save').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const idx = Number(btn.getAttribute('data-skill-idx') || -1);
+        const skillName = String(openclawSkillItems[idx]?.name || '').trim();
+        const inputId = btn.getAttribute('data-skill-input-id') || '';
+        const input = inputId ? $(inputId) : null;
+        const msg = $(`ocSkillNoteMsg-${idx}`);
+        const note = input && typeof input.value === 'string' ? input.value.trim() : '';
+        if (!skillName) {
+          if (msg) msg.textContent = '保存失败: skillName 无效';
+          return;
+        }
+        btn.disabled = true;
+        if (msg) msg.textContent = '保存中...';
+        try {
+          const r = await fetch('/api/skills/note', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent: 'openclaw', skillName, note })
+          });
+          const j = await r.json();
+          if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+          if (msg) msg.textContent = '已保存';
+          await refreshOnce();
+        } catch (err) {
+          if (msg) msg.textContent = `保存失败: ${err && err.message ? err.message : 'unknown'}`;
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
   }
 
   const hList = $('hSkillList');

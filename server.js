@@ -24,6 +24,7 @@ const HERMES_CONFIG_FILE = path.join(HERMES_HOME, "config.yaml");
 const HERMES_ENV_FILE = path.join(HERMES_HOME, ".env");
 const HERMES_BIN = "/home/ubuntu/.hermes/hermes-agent/venv/bin/hermes";
 const HISTORY_FILE = path.join(__dirname, "data", "history.json");
+const SKILL_NOTES_FILE = path.join(__dirname, "data", "skill_notes.json");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const REVIEW_CACHE_TTL_MS = Number(process.env.REVIEW_CACHE_TTL_MS || 60000);
 
@@ -130,6 +131,35 @@ function uniqStrings(items) {
 
 function safeIso(ts = Date.now()) {
   return new Date(ts).toISOString();
+}
+
+async function loadSkillNotes() {
+  try {
+    const txt = await fsp.readFile(SKILL_NOTES_FILE, "utf8");
+    const j = tryParseJson(txt, {});
+    return j && typeof j === "object" ? j : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+async function saveSkillNotes(notes) {
+  await fsp.mkdir(path.dirname(SKILL_NOTES_FILE), { recursive: true });
+  await fsp.writeFile(SKILL_NOTES_FILE, JSON.stringify(notes || {}, null, 2) + "\n", "utf8");
+}
+
+function inferOpenclawSkillPurpose(skillName) {
+  const n = String(skillName || "").toLowerCase();
+  if (!n) return "用于通用任务处理与辅助执行";
+  if (n.includes("health")) return "用于健康检查与运行状态自检";
+  if (n.includes("weather")) return "用于查询天气与环境信息";
+  if (n.includes("creator")) return "用于创建或生成结构化内容";
+  if (n.includes("taskflow")) return "用于任务流编排、分发或收敛处理";
+  if (n.includes("triage")) return "用于任务分诊、优先级判断与分配";
+  if (n.includes("tmux")) return "用于终端会话管理与长任务托管";
+  if (n.includes("connect")) return "用于连接外部服务或系统节点";
+  if (n.includes("whisper")) return "用于语音转写、识别或音频处理";
+  return `用于 ${skillName} 相关任务执行`;
 }
 
 function addHistory(snapshot) {
@@ -844,6 +874,9 @@ async function getReviewSkills() {
     sourceCounts[k] = (sourceCounts[k] || 0) + 1;
   }
 
+  const notes = await loadSkillNotes();
+  const ocNoteMap = (notes && notes.openclaw && typeof notes.openclaw === "object") ? notes.openclaw : {};
+
   const data = {
     updatedAt: safeIso(),
     openclaw: {
@@ -853,7 +886,8 @@ async function getReviewSkills() {
       sources: sourceCounts,
       available: ocSkillsLoaded.map((x) => ({
         name: x.name,
-        source: x.source || "unknown"
+        source: x.source || "unknown",
+        purpose: String(ocNoteMap[x.name] || inferOpenclawSkillPurpose(x.name))
       })).slice(0, 80)
     },
     hermes: {
@@ -1210,6 +1244,29 @@ const server = http.createServer(async (req, res) => {
       if (!ret.ok) return sendJson(res, 400, { ok: false, error: ret.error || "switch failed" });
       await Promise.all([updateSnapshot(), probeAgent(agent).catch(() => {})]);
       return sendJson(res, 200, { ok: true, detail: ret.detail, updatedAt: safeIso() });
+    } catch (err) {
+      return sendJson(res, 500, { ok: false, error: maskError(err && (err.message || err)) });
+    }
+  }
+
+  if (req.method === "POST" && parsed.pathname === "/api/skills/note") {
+    try {
+      const raw = await readRequestBody(req);
+      const j = tryParseJson(raw, {}) || {};
+      const agent = String(j.agent || "").trim().toLowerCase();
+      const skillName = String(j.skillName || "").trim();
+      const note = String(j.note || "").trim();
+      if (agent !== "openclaw") return sendJson(res, 400, { ok: false, error: "only openclaw is supported now" });
+      if (!skillName) return sendJson(res, 400, { ok: false, error: "skillName is required" });
+
+      const notes = await loadSkillNotes();
+      if (!notes.openclaw || typeof notes.openclaw !== "object") notes.openclaw = {};
+      if (note) notes.openclaw[skillName] = note;
+      else delete notes.openclaw[skillName];
+      await saveSkillNotes(notes);
+
+      reviewCache.skills = { at: 0, data: null };
+      return sendJson(res, 200, { ok: true, agent, skillName, note });
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: maskError(err && (err.message || err)) });
     }
