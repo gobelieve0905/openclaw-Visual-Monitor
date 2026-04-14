@@ -9,7 +9,6 @@ const VIEW_SET = new Set(['overview', 'openclaw', 'hermes']);
 let openclawSkillItems = [];
 let hermesSkillItems = [];
 let ocSkillListCollapsed = false;
-let hSkillListCollapsed = false;
 
 function classByState(el, level) {
   if (!el) return;
@@ -553,29 +552,52 @@ function renderSkills(data) {
   if (hList) {
     const items = Array.isArray(data?.hermes?.available) ? data.hermes.available : [];
     hermesSkillItems = items;
-    hList.innerHTML = items.length
-      ? items.map((x, idx) => {
-        const rawName = String(x.name || '-');
-        const name = esc(rawName);
-        const purpose = esc(x.purpose || `用于 ${x.category || 'Hermes'} 分类相关任务`);
+    if (!items.length) {
+      hList.innerHTML = '<span class="muted">暂无可用技能</span>';
+    } else {
+      const grouped = new Map();
+      items.forEach((x, idx) => {
+        const cat = String(x.category || 'misc');
+        if (!grouped.has(cat)) grouped.set(cat, []);
+        grouped.get(cat).push({ ...x, idx });
+      });
+      const cats = Array.from(grouped.entries()).sort((a, b) => {
+        if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+        return a[0].localeCompare(b[0]);
+      });
+      hList.innerHTML = cats.map(([cat, arr], catIdx) => {
+        const catName = esc(cat);
+        const skillRows = arr.map((x) => {
+          const name = esc(x.name || '-');
+          const purpose = esc(x.purpose || `用于 ${cat} 分类相关任务`);
+          return `
+            <div class="skill-table-row" data-h-skill-row="${x.idx}">
+              <div class="skill-table-main">
+                <span class="skill-table-title">
+                  <span class="skill-table-name">${name}</span>
+                  <span class="skill-inline-note" data-h-purpose-view="${x.idx}" title="双击编辑备注">${purpose}</span>
+                </span>
+                <span class="skill-table-state"><i class="dot ok"></i>可用</span>
+              </div>
+              <div class="skill-note-edit is-hidden" id="hSkillEdit-${x.idx}">
+                <input class="skill-note-input" id="hSkillNoteInput-${x.idx}" value="${purpose}" />
+                <button class="skill-note-save" data-h-skill-save="${x.idx}">保存</button>
+                <button class="skill-note-cancel" data-h-skill-cancel="${x.idx}">取消</button>
+              </div>
+            </div>
+          `;
+        }).join('');
         return `
-          <div class="skill-table-row" data-h-skill-row="${idx}">
-            <div class="skill-table-main">
-              <span class="skill-table-title">
-                <span class="skill-table-name">${name}</span>
-                <span class="skill-inline-note" data-h-purpose-view="${idx}" title="双击编辑备注">${purpose}</span>
-              </span>
-              <span class="skill-table-state"><i class="dot ok"></i>可用</span>
-            </div>
-            <div class="skill-note-edit is-hidden" id="hSkillEdit-${idx}">
-              <input class="skill-note-input" id="hSkillNoteInput-${idx}" value="${purpose}" />
-              <button class="skill-note-save" data-h-skill-save="${idx}">保存</button>
-              <button class="skill-note-cancel" data-h-skill-cancel="${idx}">取消</button>
-            </div>
-          </div>
+          <details class="h-cat-item" ${catIdx === 0 ? 'open' : ''}>
+            <summary>
+              <span class="h-cat-name">${catName}</span>
+              <span class="h-cat-count">${arr.length}</span>
+            </summary>
+            <div class="h-cat-skills">${skillRows}</div>
+          </details>
         `;
-      }).join('')
-      : '<span class="muted">暂无可用技能</span>';
+      }).join('');
+    }
 
     hList.onclick = async (evt) => {
       const cancelBtn = evt.target.closest('[data-h-skill-cancel]');
@@ -630,7 +652,6 @@ function renderSkills(data) {
       }
     };
 
-    hList.classList.toggle('collapsed', hSkillListCollapsed);
   }
 }
 
@@ -832,7 +853,6 @@ async function boot() {
   const ocModelApplyBtn = $('ocModelApplyBtn');
   const hModelApplyBtn = $('hModelApplyBtn');
   const ocSkillToggleBtn = $('ocSkillToggleBtn');
-  const hSkillToggleBtn = $('hSkillToggleBtn');
   document.querySelectorAll('.range-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const r = btn.getAttribute('data-range') || 'day';
@@ -854,14 +874,6 @@ async function boot() {
       const ocList = $('ocSkillList');
       if (ocList) ocList.classList.toggle('collapsed', ocSkillListCollapsed);
       ocSkillToggleBtn.textContent = ocSkillListCollapsed ? '展开' : '收起';
-    });
-  }
-  if (hSkillToggleBtn) {
-    hSkillToggleBtn.addEventListener('click', () => {
-      hSkillListCollapsed = !hSkillListCollapsed;
-      const hList = $('hSkillList');
-      if (hList) hList.classList.toggle('collapsed', hSkillListCollapsed);
-      hSkillToggleBtn.textContent = hSkillListCollapsed ? '展开' : '收起';
     });
   }
 
