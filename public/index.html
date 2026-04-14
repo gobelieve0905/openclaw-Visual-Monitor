@@ -158,6 +158,12 @@
         </div>
 
         <h3 class="sub-title"><span class="module-tag">OpenClaw</span>模型</h3>
+        <div class="model-switch-row">
+          <label for="ocModelSelect">切换模型</label>
+          <select id="ocModelSelect"></select>
+          <button id="ocModelApplyBtn" class="node-test-btn agent-main-btn">应用模型</button>
+          <span id="ocModelSwitchMsg" class="muted">-</span>
+        </div>
         <div class="stats-grid">
           <article class="summary-chip"><label>模型数量</label><b id="ocModelCount">-</b></article>
           <article class="summary-chip"><label>当前主模型</label><b id="ocModelSummary">-</b></article>
@@ -192,6 +198,10 @@
           <article class="summary-chip"><label>总技能</label><b id="ocSkillTotal">-</b></article>
           <article class="summary-chip"><label>可用技能</label><b id="ocSkillEligibleDup">-</b></article>
         </div>
+        <div class="skill-list-wrap">
+          <h4>可用技能清单</h4>
+          <div id="ocSkillList" class="skill-pill-list"></div>
+        </div>
       </section>
 
       <section class="module module-hermes" id="module-hermes" data-view="hermes">
@@ -222,6 +232,12 @@
         </div>
 
         <h3 class="sub-title"><span class="module-tag">Hermes</span>模型</h3>
+        <div class="model-switch-row">
+          <label for="hModelSelect">切换模型</label>
+          <select id="hModelSelect"></select>
+          <button id="hModelApplyBtn" class="node-test-btn agent-main-btn">应用模型</button>
+          <span id="hModelSwitchMsg" class="muted">-</span>
+        </div>
         <div class="stats-grid">
           <article class="summary-chip"><label>当前模型</label><b id="hModelSummary">-</b></article>
           <article class="summary-chip"><label>Provider</label><b id="hProviderSummary">-</b></article>
@@ -239,6 +255,10 @@
               <tr><td colspan="5">加载中...</td></tr>
             </tbody>
           </table>
+        </div>
+        <div class="skill-list-wrap">
+          <h4>可用技能清单</h4>
+          <div id="hSkillList" class="skill-pill-list"></div>
         </div>
 
         <h3 class="sub-title"><span class="module-tag">Hermes</span>技能</h3>

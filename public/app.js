@@ -401,6 +401,23 @@ function renderModels(data) {
   }
 }
 
+function renderModelOptions(data) {
+  const oc = data?.openclaw || {};
+  const h = data?.hermes || {};
+  const ocSel = $('ocModelSelect');
+  const hSel = $('hModelSelect');
+  if (ocSel) {
+    const opts = Array.isArray(oc.options) ? oc.options : [];
+    ocSel.innerHTML = opts.map((m) => `<option value="${m}">${m}</option>`).join('') || '<option value="">-</option>';
+    if (oc.current && opts.includes(oc.current)) ocSel.value = oc.current;
+  }
+  if (hSel) {
+    const opts = Array.isArray(h.options) ? h.options : [];
+    hSel.innerHTML = opts.map((m) => `<option value="${m}">${m}</option>`).join('') || '<option value="">-</option>';
+    if (h.current && opts.includes(h.current)) hSel.value = h.current;
+  }
+}
+
 function renderSessions(data) {
   setText('ocSessionCount', data?.openclaw?.count ?? '-');
   setText('hSessionCount', data?.hermes?.count ?? '-');
@@ -433,6 +450,22 @@ function renderSkills(data) {
   if (!body) return;
   const rows = (data?.hermes?.categories || []).map((x) => `<tr>${td(x.category)}${td(x.count)}</tr>`);
   body.innerHTML = rows.join('') || `<tr><td colspan="2">暂无技能数据</td></tr>`;
+
+  const ocList = $('ocSkillList');
+  if (ocList) {
+    const items = Array.isArray(data?.openclaw?.available) ? data.openclaw.available : [];
+    ocList.innerHTML = items.length
+      ? items.map((x) => `<span class="skill-pill">${x.name} <small>(${x.source || 'unknown'})</small></span>`).join('')
+      : '<span class="muted">暂无可用技能</span>';
+  }
+
+  const hList = $('hSkillList');
+  if (hList) {
+    const items = Array.isArray(data?.hermes?.available) ? data.hermes.available : [];
+    hList.innerHTML = items.length
+      ? items.map((x) => `<span class="skill-pill">${x.name} <small>(${x.category || 'misc'})</small></span>`).join('')
+      : '<span class="muted">暂无可用技能</span>';
+  }
 }
 
 function renderAlerts(data) {
@@ -556,6 +589,11 @@ async function refreshOnce() {
   } catch (_) {}
 
   try {
+    const modelOptions = await fetchJson('/api/model-options');
+    renderModelOptions(modelOptions || {});
+  } catch (_) {}
+
+  try {
     const hist = await fetchJson('/api/history?limit=2000');
     const points = aggregateHistory(hist.items || [], trendRange);
     renderTrendPanels(points);
@@ -568,6 +606,40 @@ async function refreshOnce() {
   setApiStatus('apiStats', result.statsOk);
   setApiStatus('apiArch', result.archOk);
   setApiStatus('apiEvents', result.eventsOk);
+}
+
+async function switchModel(agentKey, selectId, msgId, btnId) {
+  const sel = $(selectId);
+  const msg = $(msgId);
+  const btn = $(btnId);
+  const model = sel && sel.value ? String(sel.value).trim() : '';
+  if (!model) {
+    if (msg) msg.textContent = '请选择模型';
+    return;
+  }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '应用中...';
+  }
+  if (msg) msg.textContent = `正在切换到 ${model}...`;
+  try {
+    const r = await fetch('/api/model/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent: agentKey, model })
+    });
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    if (msg) msg.textContent = `已切换: ${model}`;
+    await refreshOnce();
+  } catch (err) {
+    if (msg) msg.textContent = `切换失败: ${err && err.message ? err.message : 'unknown'}`;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '应用模型';
+    }
+  }
 }
 
 async function refreshNow(btnId) {
@@ -591,6 +663,8 @@ async function boot() {
   const hermesBtn = $('hermesTestBtn');
   const ocRefreshBtn = $('ocRefreshBtn');
   const hermesRefreshBtn = $('hermesRefreshBtn');
+  const ocModelApplyBtn = $('ocModelApplyBtn');
+  const hModelApplyBtn = $('hModelApplyBtn');
   document.querySelectorAll('.range-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const r = btn.getAttribute('data-range') || 'day';
@@ -604,6 +678,8 @@ async function boot() {
   if (hermesBtn) hermesBtn.addEventListener('click', async () => runAgentTest('hermes'));
   if (ocRefreshBtn) ocRefreshBtn.addEventListener('click', async () => refreshNow('ocRefreshBtn'));
   if (hermesRefreshBtn) hermesRefreshBtn.addEventListener('click', async () => refreshNow('hermesRefreshBtn'));
+  if (ocModelApplyBtn) ocModelApplyBtn.addEventListener('click', async () => switchModel('openclaw', 'ocModelSelect', 'ocModelSwitchMsg', 'ocModelApplyBtn'));
+  if (hModelApplyBtn) hModelApplyBtn.addEventListener('click', async () => switchModel('hermes', 'hModelSelect', 'hModelSwitchMsg', 'hModelApplyBtn'));
 
   initViewRouter();
 

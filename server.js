@@ -65,7 +65,8 @@ const reviewCache = {
   models: { at: 0, data: null },
   sessions: { at: 0, data: null },
   skills: { at: 0, data: null },
-  alerts: { at: 0, data: null }
+  alerts: { at: 0, data: null },
+  modelOptions: { at: 0, data: null }
 };
 
 function run(cmd, timeoutMs = 12000) {
@@ -111,6 +112,18 @@ function parseEnvFile(text) {
     const key = line.slice(0, idx).trim();
     const value = line.slice(idx + 1).trim();
     out[key] = value;
+  }
+  return out;
+}
+
+function uniqStrings(items) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of items || []) {
+    const s = String(raw || "").trim();
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
   }
   return out;
 }
@@ -626,6 +639,125 @@ async function getReviewModels() {
   return data;
 }
 
+async function fetchRemoteModelIds(base, key) {
+  if (!key) return [];
+  const resolvedBase = String(base || "https://aixj.vip/v1").replace(/\/+$/, "");
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(`${resolvedBase}/models`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${key}` },
+      signal: ctrl.signal
+    });
+    clearTimeout(timer);
+    if (!r.ok) return [];
+    const j = await r.json();
+    const arr = Array.isArray(j?.data) ? j.data : [];
+    return uniqStrings(arr.map((x) => x && x.id).filter(Boolean)).slice(0, 200);
+  } catch (_) {
+    return [];
+  }
+}
+
+async function getModelOptions() {
+  if (cacheValid(reviewCache.modelOptions)) return reviewCache.modelOptions.data;
+  const ctx = await loadConfigAndEnv();
+  const env = ctx.openclaw.env || {};
+  const hermesEnv = ctx.hermes.env || {};
+  const hermesCfg = ctx.hermes.cfg || {};
+
+  const openclawStatus = await runOpenclawJson(`models status --agent ${OPENCLAW_MAIN_AGENT}`, 25000);
+  const ocAllowed = Array.isArray(openclawStatus?.allowed) ? openclawStatus.allowed : [];
+  const ocCurrent = String(openclawStatus?.resolvedDefault || openclawStatus?.defaultModel || "").replace(/^openai\//, "");
+  const ocAliasCurrent = String(openclawStatus?.resolvedDefault || openclawStatus?.defaultModel || "");
+  const ocBase = env.OPENAI_BASE_URL || "https://aixj.vip/v1";
+  const ocKey = env.OPENAI_API_KEY_DAILY || env.OPENAI_API_KEY || "";
+  const remote = await fetchRemoteModelIds(ocBase, ocKey);
+  const common = ["gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex"];
+  const openclawModels = uniqStrings([
+    ...ocAllowed.map((x) => String(x || "").replace(/^openai\//, "")),
+    ...remote,
+    ...common,
+    ocCurrent,
+    ocAliasCurrent.replace(/^openai\//, "")
+  ]);
+
+  const hCurrent = hermesCfg.model || "";
+  const hBase = hermesCfg.baseUrl || hermesEnv.OPENAI_BASE_URL || "https://aixj.vip/v1";
+  const hKey = hermesEnv.OPENAI_API_KEY || "";
+  const hermesRemote = await fetchRemoteModelIds(hBase, hKey);
+  const hermesModels = uniqStrings([
+    hCurrent,
+    ...hermesRemote,
+    ...common
+  ]);
+
+  const data = {
+    updatedAt: safeIso(),
+    openclaw: {
+      current: openclawModels.includes(ocCurrent) ? ocCurrent : (ocCurrent || "-"),
+      options: openclawModels
+    },
+    hermes: {
+      current: hCurrent || "-",
+      options: hermesModels
+    }
+  };
+  reviewCache.modelOptions = { at: Date.now(), data };
+  return data;
+}
+
+function readRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > 1024 * 1024) {
+        reject(new Error("request body too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
+async function switchAgentModel(agent, model) {
+  const target = String(model || "").trim();
+  if (!target) {
+    return { ok: false, error: "model is required" };
+  }
+  if (agent === "openclaw") {
+    const cmd = `bash -lc "export PATH=${OPENCLAW_PATH}; timeout 25 ${OPENCLAW_BIN} models set --agent ${OPENCLAW_MAIN_AGENT} openai/${target}"`;
+    const r = await run(cmd, 30000);
+    if (!r.ok) {
+      return { ok: false, error: maskError(r.stderr || r.stdout || r.error || "openclaw model set failed") };
+    }
+    reviewCache.models = { at: 0, data: null };
+    reviewCache.modelOptions = { at: 0, data: null };
+    return { ok: true, detail: `openclaw -> ${target}` };
+  }
+  if (agent === "hermes") {
+    const setCmd = `bash -lc "source /home/ubuntu/.hermes/hermes-agent/venv/bin/activate; timeout 20 ${HERMES_BIN} config set model.default ${JSON.stringify(target)}"`;
+    const r1 = await run(setCmd, 25000);
+    if (!r1.ok) {
+      return { ok: false, error: maskError(r1.stderr || r1.stdout || r1.error || "hermes model set failed") };
+    }
+    const r2 = await run("systemctl --user restart hermes-gateway.service", 20000);
+    if (!r2.ok) {
+      return { ok: false, error: maskError(r2.stderr || r2.stdout || r2.error || "hermes gateway restart failed") };
+    }
+    reviewCache.models = { at: 0, data: null };
+    reviewCache.modelOptions = { at: 0, data: null };
+    return { ok: true, detail: `hermes -> ${target}` };
+  }
+  return { ok: false, error: "unsupported agent" };
+}
+
 async function getReviewSessions() {
   if (cacheValid(reviewCache.sessions)) return reviewCache.sessions.data;
 
@@ -718,13 +850,34 @@ async function getReviewSkills() {
       total: ocSkillsLoaded.length,
       eligible: ocSkillsLoaded.filter((x) => x.eligible).length,
       bundled: ocSkillsLoaded.filter((x) => x.bundled).length,
-      sources: sourceCounts
+      sources: sourceCounts,
+      available: ocSkillsLoaded.map((x) => ({
+        name: x.name,
+        source: x.source || "unknown"
+      })).slice(0, 80)
     },
     hermes: {
       total: hTotal,
-      categories: hCategories.sort((a, b) => b.count - a.count).slice(0, 20)
+      categories: hCategories.sort((a, b) => b.count - a.count).slice(0, 20),
+      available: []
     }
   };
+
+  try {
+    const base = "/home/ubuntu/.hermes/skills";
+    const cats = await fsp.readdir(base, { withFileTypes: true });
+    const all = [];
+    for (const c of cats) {
+      if (!c.isDirectory()) continue;
+      const full = path.join(base, c.name);
+      const items = await fsp.readdir(full, { withFileTypes: true });
+      for (const it of items) {
+        if (!it.isDirectory()) continue;
+        all.push({ name: it.name, category: c.name });
+      }
+    }
+    data.hermes.available = all.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 120);
+  } catch (_) {}
 
   reviewCache.skills = { at: Date.now(), data };
   return data;
@@ -1041,6 +1194,25 @@ const server = http.createServer(async (req, res) => {
       skills,
       alerts
     });
+  }
+
+  if (req.method === "GET" && parsed.pathname === "/api/model-options") {
+    return sendJson(res, 200, await getModelOptions());
+  }
+
+  if (req.method === "POST" && parsed.pathname === "/api/model/switch") {
+    try {
+      const raw = await readRequestBody(req);
+      const j = tryParseJson(raw, {}) || {};
+      const agent = String(j.agent || "").trim().toLowerCase();
+      const model = String(j.model || "").trim();
+      const ret = await switchAgentModel(agent, model);
+      if (!ret.ok) return sendJson(res, 400, { ok: false, error: ret.error || "switch failed" });
+      await Promise.all([updateSnapshot(), probeAgent(agent).catch(() => {})]);
+      return sendJson(res, 200, { ok: true, detail: ret.detail, updatedAt: safeIso() });
+    } catch (err) {
+      return sendJson(res, 500, { ok: false, error: maskError(err && (err.message || err)) });
+    }
   }
 
   if (req.method === "GET" && parsed.pathname === "/api/stream") {

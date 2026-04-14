@@ -188,6 +188,54 @@ body {
   gap: 8px;
   margin-bottom: 8px;
 }
+.model-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 10px;
+  flex-wrap: wrap;
+}
+.model-switch-row label {
+  font-size: 13px;
+  color: #475569;
+}
+.model-switch-row select {
+  min-width: 220px;
+  height: 32px;
+  border: 1px solid #bfd0e6;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: #0f172a;
+}
+.skill-list-wrap {
+  border: 1px solid #d4e0f0;
+  border-radius: 10px;
+  background: #fbfdff;
+  padding: 10px;
+}
+.skill-list-wrap h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #334155;
+}
+.skill-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.skill-pill {
+  border: 1px solid #c9d9ee;
+  background: #f3f8ff;
+  color: #1e293b;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.skill-pill small {
+  color: #64748b;
+}
 .summary-chip {
   border: 1px solid #cad8ee;
   border-radius: 12px;
