@@ -264,102 +264,70 @@ body {
 .skill-list-column {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 0;
 }
 .skill-list-column.collapsed {
   display: none;
 }
-.skill-row {
-  border: 1px solid #d3e1f0;
-  border-radius: 12px;
-  background: #ffffff;
-  overflow: hidden;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+.skill-table-row {
+  padding: 10px 2px;
+  border-bottom: 1px solid #e5edf8;
 }
-.skill-row:hover {
-  border-color: #b4cae4;
-  box-shadow: 0 4px 16px rgba(33, 65, 102, 0.08);
+.skill-table-row:last-child {
+  border-bottom: 0;
 }
-.skill-row-head {
-  width: 100%;
-  border: 0;
-  background: linear-gradient(180deg, #fbfdff 0%, #f3f8ff 100%);
-  padding: 11px 12px;
+.skill-table-main {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  cursor: pointer;
-}
-.skill-row-left {
-  display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
+  gap: 8px;
 }
-.skill-name {
-  font-size: 16px;
+.skill-table-name {
+  font-size: 15px;
   font-weight: 600;
-  color: #10243f;
+  color: #0f233d;
+}
+.skill-table-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #4b5f79;
   white-space: nowrap;
 }
-.skill-source-badge {
-  font-size: 11px;
-  color: #3e587c;
-  border: 1px solid #c4d6eb;
-  background: #ecf4ff;
+.dot {
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
-  padding: 2px 8px;
+  display: inline-block;
+}
+.dot.ok {
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+.skill-table-note-line {
+  margin-top: 4px;
+  color: #44596f;
+  font-size: 12px;
+  line-height: 1.4;
   white-space: nowrap;
-}
-.skill-caret {
-  color: #476991;
-  font-size: 13px;
-  transition: transform 0.2s ease;
-}
-.skill-row.expanded .skill-caret {
-  transform: rotate(0deg);
-}
-.skill-row:not(.expanded) .skill-caret {
-  transform: rotate(-90deg);
-}
-.skill-row-body {
-  padding: 10px 12px 12px;
-  border-top: 1px solid #e6edf8;
-  background: #ffffff;
-}
-.skill-row:not(.expanded) .skill-row-body {
-  display: none;
-}
-.skill-purpose-text {
-  font-size: 13px;
-  color: #25384f;
-  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: default;
-  padding: 2px 0;
 }
-.skill-edit-hint {
-  margin-left: 8px;
-  font-size: 10px;
-  color: #8aa1bd;
-  border: 1px dashed #c8d6e8;
-  border-radius: 999px;
-  padding: 1px 6px;
-}
-.skill-purpose-text:hover .skill-edit-hint {
-  color: #59728f;
-  border-color: #a8bfdc;
+.skill-table-note-line:hover {
+  color: #26384a;
 }
 .skill-note-edit {
-  margin-top: 10px;
+  margin-top: 6px;
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  background: #f7fbff;
-  border: 1px solid #d8e5f3;
-  border-radius: 9px;
-  padding: 8px;
+  background: #f8fbff;
+  border: 1px solid #dbe6f4;
+  border-radius: 8px;
+  padding: 6px;
 }
 .skill-note-edit.is-hidden {
   display: none;
@@ -367,14 +335,14 @@ body {
 .skill-note-input {
   flex: 1;
   min-width: 220px;
-  height: 32px;
+  height: 30px;
   border: 1px solid #bccfe5;
   border-radius: 8px;
   padding: 0 9px;
   font-size: 12px;
 }
 .skill-note-save {
-  height: 32px;
+  height: 30px;
   border: 1px solid #7ca5d3;
   border-radius: 8px;
   background: linear-gradient(180deg, #eff6ff 0%, #dbeaff 100%);
@@ -385,7 +353,7 @@ body {
   font-weight: 600;
 }
 .skill-note-cancel {
-  height: 32px;
+  height: 30px;
   border: 1px solid #ced9e8;
   border-radius: 8px;
   background: #f8fafd;
@@ -395,21 +363,25 @@ body {
   cursor: pointer;
 }
 .skill-note-msg {
-  font-size: 12px;
+  font-size: 11px;
   color: #607489;
-  margin-top: 6px;
+  margin-top: 4px;
   display: inline-block;
 }
 .summary-chip {
   border: 1px solid #cad8ee;
   border-radius: 12px;
-  padding: 9px;
+  padding: 7px 9px;
   background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+  min-height: 78px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
-.summary-chip label { display: block; color: var(--muted); font-size: 12px; }
-.summary-chip b { display: block; margin-top: 6px; font-size: 24px; }
-.summary-chip small { display: block; margin-top: 6px; color: var(--muted); }
+.summary-chip label { display: block; color: var(--muted); font-size: 11px; }
+.summary-chip b { display: block; margin-top: 4px; font-size: 20px; line-height: 1.1; }
+.summary-chip small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
 .summary-chip.ok { border-color: #b7e3c5; }
 .summary-chip.warn { border-color: #f5d39a; }
 .summary-chip.bad { border-color: #f6b4b4; }

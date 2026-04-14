@@ -470,40 +470,26 @@ function renderSkills(data) {
       ? items.map((x, idx) => {
         const rawName = String(x.name || '-');
         const name = esc(rawName);
-        const source = esc(x.source || 'unknown');
         const purpose = esc(x.purpose || '-');
         return `
-          <div class="skill-row" data-skill-row="${idx}">
-            <button class="skill-row-head" data-row-toggle="${idx}">
-              <span class="skill-row-left">
-                <span class="skill-name">${name}</span>
-                <span class="skill-source-badge">${source}</span>
-              </span>
-              <span class="skill-caret">▾</span>
-            </button>
-            <div class="skill-row-body">
-              <div class="skill-purpose-text" data-purpose-view="${idx}" title="双击编辑备注">${purpose}<span class="skill-edit-hint">双击编辑</span></div>
-              <div class="skill-note-edit is-hidden" id="ocSkillEdit-${idx}">
-                <input class="skill-note-input" id="ocSkillNoteInput-${idx}" value="${purpose}" />
-                <button class="skill-note-save" data-skill-save="${idx}">保存</button>
-                <button class="skill-note-cancel" data-skill-cancel="${idx}">取消</button>
-              </div>
-              <span class="skill-note-msg" id="ocSkillNoteMsg-${idx}">-</span>
+          <div class="skill-table-row" data-skill-row="${idx}">
+            <div class="skill-table-main">
+              <span class="skill-table-name">${name}</span>
+              <span class="skill-table-state"><i class="dot ok"></i>可用</span>
             </div>
+            <div class="skill-table-note-line" data-purpose-view="${idx}" title="双击编辑备注">${purpose}</div>
+            <div class="skill-note-edit is-hidden" id="ocSkillEdit-${idx}">
+              <input class="skill-note-input" id="ocSkillNoteInput-${idx}" value="${purpose}" />
+              <button class="skill-note-save" data-skill-save="${idx}">保存</button>
+              <button class="skill-note-cancel" data-skill-cancel="${idx}">取消</button>
+            </div>
+            <span class="skill-note-msg" id="ocSkillNoteMsg-${idx}">-</span>
           </div>
         `;
       }).join('')
       : '<span class="muted">暂无可用技能</span>';
 
     ocList.onclick = async (evt) => {
-      const toggle = evt.target.closest('[data-row-toggle]');
-      if (toggle) {
-        const idx = Number(toggle.getAttribute('data-row-toggle') || -1);
-        const row = ocList.querySelector(`[data-skill-row="${idx}"]`);
-        if (row) row.classList.toggle('expanded');
-        return;
-      }
-
       const cancelBtn = evt.target.closest('[data-skill-cancel]');
       if (cancelBtn) {
         const idx = Number(cancelBtn.getAttribute('data-skill-cancel') || -1);
