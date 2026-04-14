@@ -667,7 +667,7 @@ async function getModelOptions() {
   const hermesEnv = ctx.hermes.env || {};
   const hermesCfg = ctx.hermes.cfg || {};
 
-  const openclawStatus = await runOpenclawJson(`models status --agent ${OPENCLAW_MAIN_AGENT}`, 25000);
+  const openclawStatus = await runOpenclawJson(`models --agent ${OPENCLAW_MAIN_AGENT} status`, 25000);
   const ocAllowed = Array.isArray(openclawStatus?.allowed) ? openclawStatus.allowed : [];
   const ocCurrent = String(openclawStatus?.resolvedDefault || openclawStatus?.defaultModel || "").replace(/^openai\//, "");
   const ocAliasCurrent = String(openclawStatus?.resolvedDefault || openclawStatus?.defaultModel || "");
@@ -732,7 +732,7 @@ async function switchAgentModel(agent, model) {
     return { ok: false, error: "model is required" };
   }
   if (agent === "openclaw") {
-    const cmd = `bash -lc "export PATH=${OPENCLAW_PATH}; timeout 25 ${OPENCLAW_BIN} models set --agent ${OPENCLAW_MAIN_AGENT} openai/${target}"`;
+    const cmd = `bash -lc "export PATH=${OPENCLAW_PATH}; timeout 25 ${OPENCLAW_BIN} models --agent ${OPENCLAW_MAIN_AGENT} set openai/${target}"`;
     const r = await run(cmd, 30000);
     if (!r.ok) {
       return { ok: false, error: maskError(r.stderr || r.stdout || r.error || "openclaw model set failed") };
