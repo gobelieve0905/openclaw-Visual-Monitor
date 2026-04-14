@@ -20,11 +20,6 @@
         <a href="#overview" data-view-link="overview">总览</a>
         <a href="#openclaw" data-view-link="openclaw">OpenClaw</a>
         <a href="#hermes" data-view-link="hermes">Hermes</a>
-        <a href="#models" data-view-link="models">模型</a>
-        <a href="#sessions" data-view-link="sessions">会话</a>
-        <a href="#stats" data-view-link="stats">统计</a>
-        <a href="#skills" data-view-link="skills">技能</a>
-        <a href="#alerts" data-view-link="alerts">告警</a>
       </nav>
       <div class="side-kv">
         <div>更新时间</div>
@@ -161,6 +156,42 @@
             </tbody>
           </table>
         </div>
+
+        <h3 class="sub-title"><span class="module-tag">OpenClaw</span>模型</h3>
+        <div class="stats-grid">
+          <article class="summary-chip"><label>模型数量</label><b id="ocModelCount">-</b></article>
+          <article class="summary-chip"><label>当前主模型</label><b id="ocModelSummary">-</b></article>
+          <article class="summary-chip"><label>会话数量</label><b id="ocSessionCount">-</b></article>
+          <article class="summary-chip"><label>可用技能</label><b id="ocSkillEligible">-</b></article>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>模型</th><th>上下文窗口</th><th>状态</th></tr>
+            </thead>
+            <tbody id="ocModelsTbody">
+              <tr><td colspan="3">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="sub-title"><span class="module-tag">OpenClaw</span>会话</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>会话键</th><th>类型</th><th>模型</th><th>Token</th><th>更新时间</th></tr>
+            </thead>
+            <tbody id="ocSessionsTbody">
+              <tr><td colspan="5">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="sub-title"><span class="module-tag">OpenClaw</span>技能</h3>
+        <div class="stats-grid">
+          <article class="summary-chip"><label>总技能</label><b id="ocSkillTotal">-</b></article>
+          <article class="summary-chip"><label>可用技能</label><b id="ocSkillEligibleDup">-</b></article>
+        </div>
       </section>
 
       <section class="module module-hermes" id="module-hermes" data-view="hermes">
@@ -189,59 +220,44 @@
             </tbody>
           </table>
         </div>
-        <h3 class="sub-title">接口状态</h3>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>接口</th><th>说明</th><th>状态</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>/api/health</td><td>基础健康快照</td><td id="apiHealth">-</td></tr>
-              <tr><td>/api/stats-all</td><td>双系统汇总</td><td id="apiStats">-</td></tr>
-              <tr><td>/api/architecture</td><td>架构节点与链路</td><td id="apiArch">-</td></tr>
-              <tr><td>/api/events</td><td>最近事件</td><td id="apiEvents">-</td></tr>
-              <tr><td>/api/stream</td><td>SSE 实时推送</td><td id="apiSse">-</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <h3 class="sub-title">事件流</h3>
-        <div id="events" class="events"></div>
-      </section>
 
-      <section class="module module-overview" id="module-models" data-view="models">
-        <h3><span class="module-tag">模型</span>Model List（去 Pixel）</h3>
+        <h3 class="sub-title"><span class="module-tag">Hermes</span>模型</h3>
+        <div class="stats-grid">
+          <article class="summary-chip"><label>当前模型</label><b id="hModelSummary">-</b></article>
+          <article class="summary-chip"><label>Provider</label><b id="hProviderSummary">-</b></article>
+          <article class="summary-chip"><label>会话数量</label><b id="hSessionCount">-</b></article>
+          <article class="summary-chip"><label>技能分类</label><b id="hSkillCats">-</b></article>
+        </div>
+
+        <h3 class="sub-title"><span class="module-tag">Hermes</span>会话</h3>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>系统</th><th>模型</th><th>Provider</th><th>上下文窗口</th><th>状态</th></tr>
+              <tr><th>会话键</th><th>类型</th><th>平台</th><th>Token</th><th>更新时间</th></tr>
             </thead>
-            <tbody id="modelsTbody">
+            <tbody id="hSessionsTbody">
               <tr><td colspan="5">加载中...</td></tr>
             </tbody>
           </table>
         </div>
-      </section>
 
-      <section class="module module-openclaw" id="module-sessions" data-view="sessions">
-        <h3><span class="module-tag">会话</span>Session Management</h3>
+        <h3 class="sub-title"><span class="module-tag">Hermes</span>技能</h3>
         <div class="stats-grid">
-          <article class="summary-chip"><label>OpenClaw 会话数</label><b id="ocSessionCount">-</b></article>
-          <article class="summary-chip"><label>Hermes 会话数</label><b id="hSessionCount">-</b></article>
+          <article class="summary-chip"><label>总技能</label><b id="hSkillTotal">-</b></article>
+          <article class="summary-chip"><label>分类数</label><b id="hSkillCatsDup">-</b></article>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>系统</th><th>会话键</th><th>类型</th><th>模型/平台</th><th>Token</th><th>更新时间</th></tr>
+              <tr><th>Hermes 分类</th><th>技能数量</th></tr>
             </thead>
-            <tbody id="sessionsTbody">
-              <tr><td colspan="6">加载中...</td></tr>
+            <tbody id="skillsTbody">
+              <tr><td colspan="2">加载中...</td></tr>
             </tbody>
           </table>
         </div>
-      </section>
 
-      <section class="module module-hermes" id="module-stats" data-view="stats">
-        <h3><span class="module-tag">统计</span>Usage Stats</h3>
+        <h3 class="sub-title"><span class="module-tag">Hermes</span>统计</h3>
         <div class="stats-toolbar">
           <span class="muted">时间范围</span>
           <div class="stats-range" id="statsRange">
@@ -266,30 +282,8 @@
             <svg id="latencyChart" class="trend-chart" viewBox="0 0 720 240" preserveAspectRatio="none"></svg>
           </article>
         </div>
-      </section>
 
-      <section class="module module-overview" id="module-skills" data-view="skills">
-        <h3><span class="module-tag">技能</span>Skill Management</h3>
-        <div class="stats-grid">
-          <article class="summary-chip"><label>OpenClaw 总技能</label><b id="ocSkillTotal">-</b></article>
-          <article class="summary-chip"><label>OpenClaw 可用技能</label><b id="ocSkillEligible">-</b></article>
-          <article class="summary-chip"><label>Hermes 总技能</label><b id="hSkillTotal">-</b></article>
-          <article class="summary-chip"><label>Hermes 分类数</label><b id="hSkillCats">-</b></article>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Hermes 分类</th><th>技能数量</th></tr>
-            </thead>
-            <tbody id="skillsTbody">
-              <tr><td colspan="2">加载中...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="module module-hermes" id="module-alerts" data-view="alerts">
-        <h3><span class="module-tag">告警</span>Alert Center（按你的现网规则）</h3>
+        <h3 class="sub-title"><span class="module-tag">Hermes</span>告警</h3>
         <div class="table-wrap">
           <table>
             <thead>
@@ -300,6 +294,24 @@
             </tbody>
           </table>
         </div>
+
+        <h3 class="sub-title">接口状态</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>接口</th><th>说明</th><th>状态</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>/api/health</td><td>基础健康快照</td><td id="apiHealth">-</td></tr>
+              <tr><td>/api/stats-all</td><td>双系统汇总</td><td id="apiStats">-</td></tr>
+              <tr><td>/api/architecture</td><td>架构节点与链路</td><td id="apiArch">-</td></tr>
+              <tr><td>/api/events</td><td>最近事件</td><td id="apiEvents">-</td></tr>
+              <tr><td>/api/stream</td><td>SSE 实时推送</td><td id="apiSse">-</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3 class="sub-title">事件流</h3>
+        <div id="events" class="events"></div>
       </section>
     </main>
   </div>

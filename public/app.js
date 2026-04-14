@@ -5,7 +5,7 @@ const nodeTestState = {};
 const BJ_TZ = 'Asia/Shanghai';
 let trendRange = 'day';
 const VIEW_DEFAULT = 'overview';
-const VIEW_SET = new Set(['overview', 'openclaw', 'hermes', 'models', 'sessions', 'stats', 'skills', 'alerts']);
+const VIEW_SET = new Set(['overview', 'openclaw', 'hermes']);
 
 function classByState(el, level) {
   if (!el) return;
@@ -383,43 +383,52 @@ function renderTrendPanels(points) {
 }
 
 function renderModels(data) {
-  const body = $('modelsTbody');
-  if (!body) return;
-  const rows = [];
   const oc = data?.openclaw || {};
   const ocModels = Array.isArray(oc.models) ? oc.models : [];
-  ocModels.forEach((m) => {
-    rows.push(
-      `<tr>${td('OpenClaw')}${td(m.name || m.key || '-')}${td('openai')}${td(m.contextWindow || '-')}${td(m.available ? '可用' : '异常', m.available ? 'ok' : 'bad')}</tr>`
-    );
-  });
   const h = data?.hermes || {};
-  rows.push(
-    `<tr>${td('Hermes')}${td(h.model || '-')}${td(h.provider || '-')}${td('-')}${td(h.dumpOk ? '可用' : '异常', h.dumpOk ? 'ok' : 'bad')}</tr>`
-  );
-  body.innerHTML = rows.join('') || `<tr><td colspan="5">暂无数据</td></tr>`;
+
+  setText('ocModelCount', ocModels.length);
+  setText('ocModelSummary', ocModels[0]?.name || ocModels[0]?.key || '-');
+  setText('hModelSummary', h.model || '-');
+  setText('hProviderSummary', h.provider || '-');
+
+  const ocBody = $('ocModelsTbody');
+  if (ocBody) {
+    const rows = ocModels.map((m) =>
+      `<tr>${td(m.name || m.key || '-')}${td(m.contextWindow || '-')}${td(m.available ? '可用' : '异常', m.available ? 'ok' : 'bad')}</tr>`
+    );
+    ocBody.innerHTML = rows.join('') || `<tr><td colspan="3">暂无模型数据</td></tr>`;
+  }
 }
 
 function renderSessions(data) {
   setText('ocSessionCount', data?.openclaw?.count ?? '-');
   setText('hSessionCount', data?.hermes?.count ?? '-');
-  const body = $('sessionsTbody');
-  if (!body) return;
-  const rows = [];
-  (data?.openclaw?.items || []).forEach((x) => {
-    rows.push(`<tr>${td('OpenClaw')}${td(x.key)}${td(x.kind || '-')}${td(x.model || '-')}${td(x.totalTokens ?? 0)}${td(fmtTs(x.updatedAt))}</tr>`);
-  });
-  (data?.hermes?.items || []).forEach((x) => {
-    rows.push(`<tr>${td('Hermes')}${td(x.key)}${td(x.chatType || '-')}${td(x.platform || '-')}${td(x.totalTokens ?? 0)}${td(fmtTs(x.updatedAt))}</tr>`);
-  });
-  body.innerHTML = rows.join('') || `<tr><td colspan="6">暂无会话数据</td></tr>`;
+
+  const ocBody = $('ocSessionsTbody');
+  if (ocBody) {
+    const rows = (data?.openclaw?.items || []).map((x) =>
+      `<tr>${td(x.key)}${td(x.kind || '-')}${td(x.model || '-')}${td(x.totalTokens ?? 0)}${td(fmtTs(x.updatedAt))}</tr>`
+    );
+    ocBody.innerHTML = rows.join('') || `<tr><td colspan="5">暂无 OpenClaw 会话</td></tr>`;
+  }
+
+  const hBody = $('hSessionsTbody');
+  if (hBody) {
+    const rows = (data?.hermes?.items || []).map((x) =>
+      `<tr>${td(x.key)}${td(x.chatType || '-')}${td(x.platform || '-')}${td(x.totalTokens ?? 0)}${td(fmtTs(x.updatedAt))}</tr>`
+    );
+    hBody.innerHTML = rows.join('') || `<tr><td colspan="5">暂无 Hermes 会话</td></tr>`;
+  }
 }
 
 function renderSkills(data) {
   setText('ocSkillTotal', data?.openclaw?.total ?? '-');
   setText('ocSkillEligible', data?.openclaw?.eligible ?? '-');
+  setText('ocSkillEligibleDup', data?.openclaw?.eligible ?? '-');
   setText('hSkillTotal', data?.hermes?.total ?? '-');
   setText('hSkillCats', (data?.hermes?.categories || []).length);
+  setText('hSkillCatsDup', (data?.hermes?.categories || []).length);
   const body = $('skillsTbody');
   if (!body) return;
   const rows = (data?.hermes?.categories || []).map((x) => `<tr>${td(x.category)}${td(x.count)}</tr>`);
