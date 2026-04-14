@@ -588,10 +588,13 @@ function buildStatsAll() {
 async function getReviewModels() {
   if (cacheValid(reviewCache.models)) return reviewCache.models.data;
 
-  const [openclawList, hermesDump] = await Promise.all([
-    runOpenclawJson("models list"),
-    run(`bash -lc "source /home/ubuntu/.hermes/hermes-agent/venv/bin/activate; timeout 15 ${HERMES_BIN} dump"`, 20000)
-  ]);
+  let openclawList = await runOpenclawJson("models list");
+  if (!openclawList || !Array.isArray(openclawList.models)) {
+    const retry = await run(`bash -lc "export PATH=${OPENCLAW_PATH}; timeout 25 ${OPENCLAW_BIN} models list --json"`, 30000);
+    openclawList = tryParseJson(retry.stdout, { count: 0, models: [] });
+  }
+
+  const hermesDump = await run(`bash -lc "source /home/ubuntu/.hermes/hermes-agent/venv/bin/activate; timeout 15 ${HERMES_BIN} dump"`, 20000);
 
   const ocModels = Array.isArray(openclawList?.models) ? openclawList.models : [];
   const hermesText = `${hermesDump.stdout || ""}\n${hermesDump.stderr || ""}`;
