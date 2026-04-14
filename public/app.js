@@ -3,6 +3,7 @@
 const $ = (id) => document.getElementById(id);
 const nodeTestState = {};
 const BJ_TZ = 'Asia/Shanghai';
+let trendRange = 'day';
 
 function classByState(el, level) {
   if (!el) return;
@@ -280,6 +281,82 @@ function td(v, cls = '') {
   return `<td class="${cls}">${v == null ? '-' : String(v)}</td>`;
 }
 
+function formatLabel(ts, range) {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '-';
+  if (range === 'day') {
+    return new Intl.DateTimeFormat('zh-CN', { timeZone: BJ_TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+  }
+  if (range === 'week') {
+    return new Intl.DateTimeFormat('zh-CN', { timeZone: BJ_TZ, month: '2-digit', day: '2-digit' }).format(d);
+  }
+  return new Intl.DateTimeFormat('zh-CN', { timeZone: BJ_TZ, month: '2-digit', day: '2-digit' }).format(d);
+}
+
+function aggregateHistory(items, range) {
+  const now = Date.now();
+  const bucketMs = range === 'day' ? 2 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  const spanMs = range === 'day' ? 24 * 60 * 60 * 1000 : (range === 'week' ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000);
+  const start = now - spanMs;
+  const map = new Map();
+
+  (items || []).forEach((x) => {
+    const t = Date.parse(x.ts || '');
+    if (!Number.isFinite(t) || t < start) return;
+    const k = Math.floor((t - start) / bucketMs);
+    const obj = map.get(k) || { count: 0, req: 0, latencySum: 0, latencyN: 0, ts: start + k * bucketMs };
+    obj.count += 1;
+    obj.req += Number(x.metrics?.llmRequest5m || 0);
+    const ocLat = Number(x.agents?.openclaw?.latencyMs || 0);
+    const hLat = Number(x.agents?.hermes?.latencyMs || 0);
+    if (ocLat > 0) { obj.latencySum += ocLat; obj.latencyN += 1; }
+    if (hLat > 0) { obj.latencySum += hLat; obj.latencyN += 1; }
+    map.set(k, obj);
+  });
+
+  const points = [];
+  const maxK = Math.ceil(spanMs / bucketMs);
+  for (let i = 0; i <= maxK; i += 1) {
+    const b = map.get(i) || { req: 0, latencySum: 0, latencyN: 0, ts: start + i * bucketMs };
+    const req = Number(b.req || 0);
+    points.push({
+      label: formatLabel(b.ts, range),
+      token: req * 1200,
+      latency: b.latencyN > 0 ? Math.round(b.latencySum / b.latencyN) : 0
+    });
+  }
+  return points.filter((_, idx) => range !== 'day' || idx % 2 === 0).slice(-24);
+}
+
+function renderLineChart(svgId, points, valueKey, color) {
+  const svg = $(svgId);
+  if (!svg) return;
+  const w = 720; const h = 240;
+  const p = { l: 46, r: 14, t: 16, b: 30 };
+  const cw = w - p.l - p.r;
+  const ch = h - p.t - p.b;
+  const vals = points.map((x) => Number(x[valueKey] || 0));
+  const max = Math.max(1, ...vals);
+  const min = 0;
+  const x = (i) => p.l + (i / Math.max(1, points.length - 1)) * cw;
+  const y = (v) => p.t + (1 - (v - min) / (max - min || 1)) * ch;
+
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((r) => Math.round(max * r));
+  const grid = ticks.map((t) => `<g><line x1="${p.l}" y1="${y(t)}" x2="${w - p.r}" y2="${y(t)}" stroke="#e6edf8"/><text x="${p.l - 6}" y="${y(t) + 4}" font-size="10" text-anchor="end" fill="#64748b">${t}</text></g>`).join('');
+  const poly = points.map((pt, i) => `${x(i)},${y(Number(pt[valueKey] || 0))}`).join(' ');
+  const dots = points.map((pt, i) => `<circle cx="${x(i)}" cy="${y(Number(pt[valueKey] || 0))}" r="2.2" fill="${color}"><title>${pt.label}: ${pt[valueKey]}</title></circle>`).join('');
+  const labelsStep = Math.max(1, Math.floor(points.length / 8));
+  const labels = points.map((pt, i) => (i % labelsStep === 0 || i === points.length - 1)
+    ? `<text x="${x(i)}" y="${h - 10}" font-size="10" text-anchor="middle" fill="#64748b">${pt.label}</text>` : '').join('');
+
+  svg.innerHTML = `${grid}<polyline points="${poly}" fill="none" stroke="${color}" stroke-width="2.2"/>${dots}${labels}`;
+}
+
+function renderTrendPanels(points) {
+  renderLineChart('tokenChart', points, 'token', '#2563eb');
+  renderLineChart('latencyChart', points, 'latency', '#ea580c');
+}
+
 function renderModels(data) {
   const body = $('modelsTbody');
   if (!body) return;
@@ -444,6 +521,12 @@ async function refreshOnce() {
     renderAlerts(review.alerts || {});
   } catch (_) {}
 
+  try {
+    const hist = await fetchJson('/api/history?limit=2000');
+    const points = aggregateHistory(hist.items || [], trendRange);
+    renderTrendPanels(points);
+  } catch (_) {}
+
   if (stats || health) render(stats || {}, health || {});
   if (arch) renderArchitecture(arch);
 
@@ -474,6 +557,15 @@ async function boot() {
   const hermesBtn = $('hermesTestBtn');
   const ocRefreshBtn = $('ocRefreshBtn');
   const hermesRefreshBtn = $('hermesRefreshBtn');
+  document.querySelectorAll('.range-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const r = btn.getAttribute('data-range') || 'day';
+      trendRange = r;
+      document.querySelectorAll('.range-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      await refreshOnce();
+    });
+  });
   if (ocBtn) ocBtn.addEventListener('click', async () => runAgentTest('openclaw'));
   if (hermesBtn) hermesBtn.addEventListener('click', async () => runAgentTest('hermes'));
   if (ocRefreshBtn) ocRefreshBtn.addEventListener('click', async () => refreshNow('ocRefreshBtn'));

@@ -242,11 +242,29 @@
 
       <section class="module module-hermes" id="module-stats">
         <h3><span class="module-tag">统计</span>Usage Stats</h3>
+        <div class="stats-toolbar">
+          <span class="muted">时间范围</span>
+          <div class="stats-range" id="statsRange">
+            <button class="range-btn active" data-range="day">天</button>
+            <button class="range-btn" data-range="week">周</button>
+            <button class="range-btn" data-range="month">月</button>
+          </div>
+        </div>
         <div class="stats-grid">
           <article class="summary-chip"><label>5分钟 LLM 请求</label><b id="mReq">-</b></article>
           <article class="summary-chip"><label>5分钟 LLM 失败</label><b id="mLlmFail">-</b></article>
           <article class="summary-chip"><label>5分钟 网络错误</label><b id="mNetErr">-</b></article>
           <article class="summary-chip"><label>系统负载 / 内存</label><b id="mSysLoad">-</b></article>
+        </div>
+        <div class="chart-grid">
+          <article class="chart-card">
+            <h4>Token 趋势</h4>
+            <svg id="tokenChart" class="trend-chart" viewBox="0 0 720 240" preserveAspectRatio="none"></svg>
+          </article>
+          <article class="chart-card">
+            <h4>响应时间趋势</h4>
+            <svg id="latencyChart" class="trend-chart" viewBox="0 0 720 240" preserveAspectRatio="none"></svg>
+          </article>
         </div>
       </section>
 
