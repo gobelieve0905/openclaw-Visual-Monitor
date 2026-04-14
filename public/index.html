@@ -3,182 +3,190 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OpenClaw 健康控制台</title>
+  <title>双系统监控面板 MVP</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
-        <h1>OpenClaw 控制台</h1>
-        <p id="updatedAtSide" class="muted">更新时间: -</p>
+        <div class="brand-mark">OM</div>
+        <div>
+          <h1>智能体监控中心</h1>
+          <p class="muted">OpenClaw + Hermes</p>
+        </div>
       </div>
-
-      <nav class="nav" id="moduleNav">
-        <a href="#module-overview" data-module="overview" class="nav-item active"><span>总览</span><b id="badge-overview" class="badge">-</b></a>
-        <a href="#module-agent-split" data-module="agent-split" class="nav-item"><span>Agent 拆分</span><b id="badge-agent-split" class="badge">-</b></a>
-        <a href="#module-agents" data-module="agents" class="nav-item"><span>Agent 状态</span><b id="badge-agents" class="badge">-</b></a>
-        <a href="#module-activity" data-module="activity" class="nav-item"><span>活动</span><b id="badge-activity" class="badge">-</b></a>
-        <a href="#module-channels" data-module="channels" class="nav-item"><span>通道</span><b id="badge-channels" class="badge">-</b></a>
-        <a href="#module-services" data-module="services" class="nav-item"><span>服务</span><b id="badge-services" class="badge">-</b></a>
-        <a href="#module-errors" data-module="errors" class="nav-item"><span>错误</span><b id="badge-errors" class="badge">-</b></a>
-        <a href="#module-events" data-module="events" class="nav-item"><span>事件</span><b id="badge-events" class="badge">-</b></a>
-        <a href="#module-system" data-module="system" class="nav-item"><span>系统</span><b id="badge-system" class="badge">-</b></a>
+      <nav class="side-nav">
+        <a href="#module-overview">总览</a>
+        <a href="#module-openclaw">OpenClaw</a>
+        <a href="#module-hermes">Hermes</a>
       </nav>
-
-      <div class="sidebar-foot muted">
-        <div>Gateway: <span id="sideGateway">-</span></div>
-        <div>sing-box: <span id="sideSingbox">-</span></div>
-        <div>Overall: <span id="sideOverall">-</span></div>
+      <div class="side-kv">
+        <div>更新时间</div>
+        <b id="updatedAtSide">-</b>
       </div>
+      <div class="side-note">数据每 15 秒自动刷新</div>
     </aside>
 
     <main class="content">
-      <header class="top">
-        <h2>OpenClaw Agent 健康监控面板</h2>
-        <div id="updatedAt" class="muted">更新时间: -</div>
+      <header class="topbar">
+        <div>
+          <h2>OpenClaw 与 Hermes 并行监控</h2>
+          <p class="topbar-sub">总分结构：共享环境在上，Agent 专属链路在下</p>
+        </div>
+        <span id="updatedAt">-</span>
       </header>
 
       <section class="module" id="module-overview">
-        <div class="module-head">
-          <h3>总览</h3>
-          <p class="muted">全链路健康总览</p>
-        </div>
-        <section class="grid" id="cards">
-          <article class="card" data-key="overall"><h4>总体状态</h4><p class="value" id="overall">-</p><p class="detail" id="overallReason">-</p></article>
-          <article class="card" data-key="gateway"><h4>Gateway</h4><p class="value" id="gateway">-</p></article>
-          <article class="card" data-key="singbox"><h4>sing-box</h4><p class="value" id="singbox">-</p></article>
-          <article class="card" data-key="proxy"><h4>本地代理 127.0.0.1:7890</h4><p class="value" id="proxy">-</p></article>
-          <article class="card" data-key="openai"><h4>OpenAI Relay /models</h4><p class="value" id="openai">-</p></article>
-          <article class="card" data-key="tgDaily"><h4>Telegram Daily getMe</h4><p class="value" id="tgDaily">-</p></article>
-          <article class="card" data-key="tgWork"><h4>Telegram Work getMe</h4><p class="value" id="tgWork">-</p></article>
-        </section>
-      </section>
-
-      <section class="module" id="module-agent-split">
-        <div class="module-head">
-          <h3>Agent 拆分</h3>
-          <p class="muted">按 agent 独立监控链路（main/daily 与 work）</p>
-        </div>
-        <div class="split">
-          <article class="card" data-key="splitMain">
-            <h4>main (daily)</h4>
-            <p class="value" id="splitMainScore">-</p>
-            <p class="detail" id="splitMainDetail">-</p>
-            <div class="mini-grid">
-              <div>通道: <b id="splitMainChannel">-</b></div>
-              <div>探针: <b id="splitMainProbe">-</b></div>
-              <div>延迟: <b id="splitMainLatency">-</b></div>
-              <div>最近成功: <b id="splitMainLastOk">-</b></div>
-            </div>
+        <h3>总览</h3>
+        <div class="overview-header">
+          <article class="summary-chip" id="card-overall">
+            <label>总体健康</label>
+            <b id="overallLevel">-</b>
+            <small id="overallReason">-</small>
           </article>
-          <article class="card" data-key="splitWork">
-            <h4>work</h4>
-            <p class="value" id="splitWorkScore">-</p>
-            <p class="detail" id="splitWorkDetail">-</p>
-            <div class="mini-grid">
-              <div>通道: <b id="splitWorkChannel">-</b></div>
-              <div>探针: <b id="splitWorkProbe">-</b></div>
-              <div>延迟: <b id="splitWorkLatency">-</b></div>
-              <div>最近成功: <b id="splitWorkLastOk">-</b></div>
-            </div>
+          <article class="summary-chip" id="card-proxy">
+            <label>公共链路（Proxy / sing-box）</label>
+            <b id="proxyStatus">-</b>
+            <small id="proxyDetail">-</small>
           </article>
         </div>
+
+        <div class="shared-block">
+          <h4>共用环境与接口（总）</h4>
+          <p class="muted">两个 Agent 共用：Proxy 与 LLM API</p>
+          <div id="sharedArchNodes" class="arch-grid shared-arch-grid"></div>
+        </div>
+
+        <div class="agent-overview-grid">
+          <div class="agent-section-title">按 Agent 拆分（分）</div>
+          <article class="agent-panel" id="card-oc">
+            <div class="agent-panel-head">
+              <h4>OpenClaw Agent</h4>
+              <span id="ocStatus" class="status-pill">-</span>
+            </div>
+            <p id="ocDetail" class="agent-detail">-</p>
+            <div class="agent-checks">
+              <div>服务：<b id="ocServiceQuick">-</b></div>
+              <div>端口：<b id="ocPortQuick">-</b></div>
+              <div>Telegram：<b id="ocTgQuick">-</b></div>
+              <div>LLM：<b id="ocLlmQuick">-</b></div>
+            </div>
+            <div class="agent-test-box">
+              <button id="ocTestBtn" class="node-test-btn">测试 Agent</button>
+              <div class="test-meta">
+                <div>状态：<span id="ocTestStatus">未测试</span></div>
+                <div>上次测试：<span id="ocTestTime">-</span></div>
+                <div>结论：<span id="ocTestConclusion">-</span></div>
+                <div>报错：<span id="ocTestError">-</span></div>
+              </div>
+            </div>
+            <div class="agent-arch">
+              <h5>OpenClaw 架构节点</h5>
+              <div id="ocArchNodes" class="arch-grid agent-arch-grid"></div>
+            </div>
+          </article>
+
+          <article class="agent-panel" id="card-hermes">
+            <div class="agent-panel-head">
+              <h4>Hermes Agent</h4>
+              <span id="hermesStatus" class="status-pill">-</span>
+            </div>
+            <p id="hermesDetail" class="agent-detail">-</p>
+            <div class="agent-checks">
+              <div>服务：<b id="hServiceQuick">-</b></div>
+              <div>端口：<b id="hPortQuick">-</b></div>
+              <div>Telegram：<b id="hTgQuick">-</b></div>
+              <div>LLM：<b id="hLlmQuick">-</b></div>
+            </div>
+            <div class="agent-test-box">
+              <button id="hermesTestBtn" class="node-test-btn">测试 Agent</button>
+              <div class="test-meta">
+                <div>状态：<span id="hermesTestStatus">未测试</span></div>
+                <div>上次测试：<span id="hermesTestTime">-</span></div>
+                <div>结论：<span id="hermesTestConclusion">-</span></div>
+                <div>报错：<span id="hermesTestError">-</span></div>
+              </div>
+            </div>
+            <div class="agent-arch">
+              <h5>Hermes 架构节点</h5>
+              <div id="hArchNodes" class="arch-grid agent-arch-grid"></div>
+            </div>
+          </article>
+        </div>
       </section>
 
-      <section class="module" id="module-agents">
-        <div class="module-head">
-          <h3>Agent 状态</h3>
-          <p class="muted">work / daily 探针状态与延迟</p>
-        </div>
-        <div class="split">
-          <article class="card" data-key="agentMain"><h4>Agent main(daily)</h4><p class="value" id="agentMain">-</p><p class="detail" id="agentMainDetail">-</p></article>
-          <article class="card" data-key="agentWork"><h4>Agent work</h4><p class="value" id="agentWork">-</p><p class="detail" id="agentWorkDetail">-</p></article>
-        </div>
-      </section>
-
-      <section class="module" id="module-activity">
-        <div class="module-head">
-          <h3>活动</h3>
-          <p class="muted">5 分钟内消息与请求活动</p>
-        </div>
-        <div class="metrics">
-          <div><span>LLM 请求</span><b id="mReq">0</b></div>
-          <div><span>sendMessage 成功</span><b id="mSend">0</b></div>
-          <div><span>LLM 失败</span><b id="mLlmFail">0</b></div>
-        </div>
-      </section>
-
-      <section class="module" id="module-channels">
-        <div class="module-head">
-          <h3>通道</h3>
-          <p class="muted">Telegram 双账号链路状态</p>
-        </div>
+      <section class="module" id="module-openclaw">
+        <h3>OpenClaw 具体状态</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>通道</th><th>HTTP</th><th>状态</th></tr></thead>
+            <thead>
+              <tr>
+                <th>项目</th>
+                <th>服务</th>
+                <th>端口</th>
+                <th>Telegram</th>
+                <th>LLM</th>
+                <th>模型 / Provider</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr><td>tg_daily</td><td id="rowDailyCode">-</td><td id="rowDailyState">-</td></tr>
-              <tr><td>tg_work</td><td id="rowWorkCode">-</td><td id="rowWorkState">-</td></tr>
-              <tr><td>代理</td><td colspan="2" id="rowProxyUrl">-</td></tr>
+              <tr>
+                <td>OpenClaw</td>
+                <td id="ocService">-</td>
+                <td id="ocPort">-</td>
+                <td id="ocTg">-</td>
+                <td id="ocLlm">-</td>
+                <td id="ocModel">-</td>
+              </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <section class="module" id="module-services">
-        <div class="module-head">
-          <h3>服务</h3>
-          <p class="muted">基础服务与配置检查</p>
-        </div>
+      <section class="module" id="module-hermes">
+        <h3>Hermes 具体状态</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>服务 / 配置</th><th>状态</th></tr></thead>
+            <thead>
+              <tr>
+                <th>项目</th>
+                <th>服务</th>
+                <th>端口</th>
+                <th>Telegram</th>
+                <th>LLM</th>
+                <th>模型 / Provider</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr><td>openclaw-gateway.service</td><td id="rowGateway">-</td></tr>
-              <tr><td>sing-box.service</td><td id="rowSingbox">-</td></tr>
-              <tr><td>代理端口 7890</td><td id="rowProxy">-</td></tr>
-              <tr><td>OPENAI_API_KEY_DAILY</td><td id="rowKeyDaily">-</td></tr>
-              <tr><td>OPENAI_API_KEY_WORK</td><td id="rowKeyWork">-</td></tr>
-              <tr><td>TELEGRAM_TOKEN_DAILY</td><td id="rowTokenDaily">-</td></tr>
-              <tr><td>TELEGRAM_TOKEN_WORK</td><td id="rowTokenWork">-</td></tr>
+              <tr>
+                <td>Hermes</td>
+                <td id="hService">-</td>
+                <td id="hPort">-</td>
+                <td id="hTg">-</td>
+                <td id="hLlm">-</td>
+                <td id="hModel">-</td>
+              </tr>
             </tbody>
           </table>
         </div>
-      </section>
-
-      <section class="module" id="module-errors">
-        <div class="module-head">
-          <h3>错误</h3>
-          <p class="muted">最近 5 分钟错误指标 + 健康趋势</p>
+        <h3 class="sub-title">接口状态</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>接口</th><th>说明</th><th>状态</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>/api/health</td><td>基础健康快照</td><td id="apiHealth">-</td></tr>
+              <tr><td>/api/stats-all</td><td>双系统汇总</td><td id="apiStats">-</td></tr>
+              <tr><td>/api/architecture</td><td>架构节点与链路</td><td id="apiArch">-</td></tr>
+              <tr><td>/api/events</td><td>最近事件</td><td id="apiEvents">-</td></tr>
+              <tr><td>/api/stream</td><td>SSE 实时推送</td><td id="apiSse">-</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="metrics">
-          <div><span>网络错误</span><b id="mNet">0</b></div>
-          <div><span>超时错误</span><b id="mTimeout">0</b></div>
-          <div><span>故障切换</span><b id="mFailover">0</b></div>
-        </div>
-        <canvas id="trend" width="1200" height="220"></canvas>
-      </section>
-
-      <section class="module" id="module-events">
-        <div class="module-head">
-          <h3>事件</h3>
-          <p class="muted">近期错误/告警/发送事件流</p>
-        </div>
+        <h3 class="sub-title">事件流</h3>
         <div id="events" class="events"></div>
-      </section>
-
-      <section class="module" id="module-system">
-        <div class="module-head">
-          <h3>系统</h3>
-          <p class="muted">服务器资源状态</p>
-        </div>
-        <div class="metrics">
-          <div><span>1 分钟负载</span><b id="sysLoad1">0</b></div>
-          <div><span>内存使用</span><b id="sysMem">0%</b></div>
-          <div><span>磁盘使用</span><b id="sysDisk">0%</b></div>
-        </div>
-        <p class="muted">运行时长: <span id="sysUptime">-</span></p>
       </section>
     </main>
   </div>

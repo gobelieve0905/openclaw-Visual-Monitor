@@ -15,9 +15,14 @@ const PROBE_INTERVAL_MS = Number(process.env.PROBE_INTERVAL_MS || 300000);
 
 const OPENCLAW_HOME = "/home/ubuntu/.openclaw";
 const OPENCLAW_BIN = "/home/ubuntu/.openclaw/tools/node-v22.22.0/bin/openclaw";
+const OPENCLAW_MAIN_AGENT = "main";
 const OPENCLAW_PATH = "/home/ubuntu/.openclaw/tools/node-v22.22.0/bin:/home/ubuntu/.openclaw/lib/npm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 const CONFIG_FILE = path.join(OPENCLAW_HOME, "openclaw.json");
 const ENV_FILE = path.join(OPENCLAW_HOME, "env", "openclaw.env");
+const HERMES_HOME = "/home/ubuntu/.hermes";
+const HERMES_CONFIG_FILE = path.join(HERMES_HOME, "config.yaml");
+const HERMES_ENV_FILE = path.join(HERMES_HOME, ".env");
+const HERMES_BIN = "/home/ubuntu/.hermes/hermes-agent/venv/bin/hermes";
 const HISTORY_FILE = path.join(__dirname, "data", "history.json");
 const PUBLIC_DIR = path.join(__dirname, "public");
 
@@ -27,8 +32,8 @@ const state = {
   services: {},
   network: {},
   agents: {
-    main: { status: "unknown", lastProbeAt: null, lastOkAt: null, latencyMs: null, detail: "" },
-    work: { status: "unknown", lastProbeAt: null, lastOkAt: null, latencyMs: null, detail: "" }
+    openclaw: { status: "unknown", lastProbeAt: null, lastOkAt: null, latencyMs: null, detail: "" },
+    hermes: { status: "unknown", lastProbeAt: null, lastOkAt: null, latencyMs: null, detail: "" }
   },
   metrics: {
     logWindowMinutes: 5,
@@ -48,11 +53,8 @@ const state = {
     uptime: "-"
   },
   config: {
-    hasDailyKey: false,
-    hasWorkKey: false,
-    hasDailyToken: false,
-    hasWorkToken: false,
-    telegramProxy: ""
+    openclaw: { hasKey: false, hasToken: false, telegramProxy: "", model: "" },
+    hermes: { hasKey: false, hasToken: false, model: "", provider: "", baseUrl: "" }
   },
   overall: { level: "unknown", reason: "initializing" }
 };
@@ -115,27 +117,31 @@ async function loadHistory() {
 
 function levelFromState(nextState) {
   const bad = [];
-  if (nextState.services.gateway !== "active") bad.push("gateway");
+  if (nextState.services.openclawGateway !== "active") bad.push("openclaw-gateway");
+  if (nextState.services.hermesGateway !== "active") bad.push("hermes-gateway");
   if (nextState.services.singbox !== "active") bad.push("sing-box");
   if (!nextState.network.proxyPortOpen) bad.push("proxy-port");
-  if (nextState.network.openaiHttpCode !== 200) bad.push("openai-relay");
-  if (nextState.network.telegramDaily !== 200) bad.push("telegram-daily");
-  if (nextState.network.telegramWork !== 200) bad.push("telegram-work");
+  if (nextState.network.openclawOpenaiHttpCode !== 200) bad.push("openclaw-openai");
+  if (nextState.network.hermesOpenaiHttpCode !== 200) bad.push("hermes-openai");
+  if (nextState.network.openclawTelegram !== 200) bad.push("openclaw-telegram");
+  if (nextState.network.hermesTelegram !== 200) bad.push("hermes-telegram");
+  if (!nextState.network.openclawPortOpen) bad.push("openclaw-port");
+  if (!nextState.network.hermesPortOpen) bad.push("hermes-port");
 
-  const mainBad = nextState.agents.main.status === "error";
-  const workBad = nextState.agents.work.status === "error";
-  const mainUnknown = nextState.agents.main.status === "unknown";
-  const workUnknown = nextState.agents.work.status === "unknown";
+  const openclawBad = nextState.agents.openclaw.status === "error";
+  const hermesBad = nextState.agents.hermes.status === "error";
+  const openclawUnknown = nextState.agents.openclaw.status === "unknown";
+  const hermesUnknown = nextState.agents.hermes.status === "unknown";
 
-  if (bad.length === 0 && !mainBad && !workBad && !mainUnknown && !workUnknown && nextState.metrics.timeoutErrors5m === 0 && nextState.metrics.networkErrors5m === 0) {
+  if (bad.length === 0 && !openclawBad && !hermesBad && !openclawUnknown && !hermesUnknown && nextState.metrics.timeoutErrors5m === 0 && nextState.metrics.networkErrors5m === 0) {
     return { level: "green", reason: "all checks passed" };
   }
 
-  if (bad.includes("gateway") || bad.includes("sing-box") || bad.includes("proxy-port") || (mainBad && workBad)) {
+  if (bad.includes("openclaw-gateway") || bad.includes("hermes-gateway") || bad.includes("sing-box") || bad.includes("proxy-port") || (openclawBad && hermesBad)) {
     return { level: "red", reason: `critical: ${bad.join(", ") || "agents unhealthy"}` };
   }
 
-  if (mainUnknown || workUnknown) {
+  if (openclawUnknown || hermesUnknown) {
     return { level: "yellow", reason: "warming up: waiting first agent probes" };
   }
 
@@ -180,58 +186,69 @@ async function getLogMetrics() {
 }
 
 async function checkServices() {
-  const gateway = await run("systemctl --user is-active openclaw-gateway.service");
+  const openclawGateway = await run("systemctl --user is-active openclaw-gateway.service");
+  const hermesGateway = await run("systemctl --user is-active hermes-gateway.service");
   const singbox = await run("systemctl is-active sing-box.service");
   return {
-    gateway: gateway.stdout || "unknown",
+    openclawGateway: openclawGateway.stdout || "unknown",
+    hermesGateway: hermesGateway.stdout || "unknown",
     singbox: singbox.stdout || "unknown"
   };
 }
 
-async function checkProxyPort() {
-  const r = await run("ss -lnt | grep -q '127.0.0.1:7890' && echo open || echo closed");
+async function checkPort(port) {
+  const r = await run(`ss -lnt | grep -q '127.0.0.1:${port}' && echo open || echo closed`);
   return r.stdout === "open";
 }
 
+function parseHermesConfig(text) {
+  const modelMatch = text.match(/^\s*default:\s*["']?([^"'\n]+)["']?/m);
+  const providerMatch = text.match(/^\s*provider:\s*["']?([^"'\n]+)["']?/m);
+  const baseUrlMatch = text.match(/^\s*base_url:\s*["']?([^"'\n]+)["']?/m);
+  const apiServerPortMatch = text.match(/^\s*port:\s*(\d+)\s*$/m);
+  return {
+    model: modelMatch ? modelMatch[1].trim() : "",
+    provider: providerMatch ? providerMatch[1].trim() : "",
+    baseUrl: baseUrlMatch ? baseUrlMatch[1].trim() : "",
+    apiServerPort: apiServerPortMatch ? Number(apiServerPortMatch[1]) : 18789
+  };
+}
+
 async function loadConfigAndEnv() {
-  const out = { env: {}, cfg: {} };
+  const out = {
+    openclaw: { env: {}, cfg: {} },
+    hermes: { env: {}, cfgText: "", cfg: { model: "", provider: "", baseUrl: "", apiServerPort: 18789 } }
+  };
   try {
-    out.env = parseEnvFile(await fsp.readFile(ENV_FILE, "utf8"));
+    out.openclaw.env = parseEnvFile(await fsp.readFile(ENV_FILE, "utf8"));
   } catch (_) {}
   try {
-    out.cfg = JSON.parse(await fsp.readFile(CONFIG_FILE, "utf8"));
+    out.openclaw.cfg = JSON.parse(await fsp.readFile(CONFIG_FILE, "utf8"));
+  } catch (_) {}
+  try {
+    out.hermes.env = parseEnvFile(await fsp.readFile(HERMES_ENV_FILE, "utf8"));
+  } catch (_) {}
+  try {
+    out.hermes.cfgText = await fsp.readFile(HERMES_CONFIG_FILE, "utf8");
+    out.hermes.cfg = parseHermesConfig(out.hermes.cfgText);
   } catch (_) {}
   return out;
 }
 
-async function probeOpenAI(env) {
-  const base = env.OPENAI_BASE_URL || "https://aixj.vip/v1";
-  const key = env.OPENAI_API_KEY_DAILY || env.OPENAI_API_KEY || "";
+async function probeOpenAI(base, key) {
   if (!key) return 0;
-  const cmd = `curl -sS -o /dev/null -w "%{http_code}" --max-time 12 -H "Authorization: Bearer ${key}" "${base}/models"`;
+  const resolvedBase = base || "https://aixj.vip/v1";
+  const cmd = `curl -sS -o /dev/null -w "%{http_code}" --max-time 12 -H "Authorization: Bearer ${key}" "${resolvedBase}/models"`;
   const r = await run(cmd, 15000);
   return Number(r.stdout || 0);
 }
 
-async function probeTelegram(env, cfg) {
-  const tokens = {
-    daily: env.TELEGRAM_TOKEN_DAILY || (((cfg || {}).channels || {}).telegram || {}).accounts?.tg_daily?.botToken || "",
-    work: env.TELEGRAM_TOKEN_WORK || (((cfg || {}).channels || {}).telegram || {}).accounts?.tg_work?.botToken || ""
-  };
-  const proxy = (((cfg || {}).channels || {}).telegram || {}).proxy || "";
-
-  async function one(token) {
-    if (!token) return 0;
-    const proxyPart = proxy ? `-x ${proxy} ` : "";
-    const cmd = `curl -sS ${proxyPart}--max-time 12 -o /dev/null -w "%{http_code}" "https://api.telegram.org/bot${token}/getMe"`;
-    const r = await run(cmd, 15000);
-    return Number(r.stdout || 0);
-  }
-
-  return {
-    daily: await one(tokens.daily),
-    work: await one(tokens.work)
-  };
+async function probeTelegram(token, proxy) {
+  if (!token) return 0;
+  const proxyPart = proxy ? `-x ${proxy} ` : "";
+  const cmd = `curl -sS ${proxyPart}--max-time 12 -o /dev/null -w "%{http_code}" "https://api.telegram.org/bot${token}/getMe"`;
+  const r = await run(cmd, 15000);
+  return Number(r.stdout || 0);
 }
 
 async function probeSystem() {
@@ -257,9 +274,33 @@ async function probeSystem() {
   };
 }
 
-let probeCursor = "main";
+let probeCursor = "openclaw";
+
+function maskError(text) {
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  return t.length > 220 ? `${t.slice(0, 220)}...` : t;
+}
+
 async function probeAgent(agentId) {
-  const cmd = `bash -lc "export PATH=${OPENCLAW_PATH}; timeout 20 ${OPENCLAW_BIN} models --agent ${agentId} status --json"`;
+  if (agentId === "hermes") {
+    const start = Date.now();
+    const cmd = `bash -lc "source /home/ubuntu/.hermes/hermes-agent/venv/bin/activate; timeout 20 ${HERMES_BIN} dump"`;
+    const r = await run(cmd, 25000);
+    const latency = Date.now() - start;
+    const text = `${r.stdout}\n${r.stderr}`.trim();
+    const provider = (text.match(/provider:\s+([^\n]+)/) || [])[1] || "";
+    const model = (text.match(/model:\s+([^\n]+)/) || [])[1] || "";
+    const gateway = (text.match(/gateway:\s+([^\n]+)/) || [])[1] || "";
+    const ok = r.ok && /running/.test(gateway);
+    state.agents.hermes.lastProbeAt = safeIso();
+    state.agents.hermes.latencyMs = latency;
+    state.agents.hermes.status = ok ? "ok" : "error";
+    state.agents.hermes.detail = ok ? `model=${model.trim() || "-"} provider=${provider.trim() || "-"}` : (text.split("\n").slice(-2).join(" | ") || "hermes probe failed");
+    if (ok) state.agents.hermes.lastOkAt = safeIso();
+    return;
+  }
+
+  const cmd = `bash -lc "export PATH=${OPENCLAW_PATH}; timeout 20 ${OPENCLAW_BIN} models --agent ${OPENCLAW_MAIN_AGENT} status --json"`;
   const start = Date.now();
   const r = await run(cmd, 25000);
   const latency = Date.now() - start;
@@ -279,32 +320,135 @@ async function probeAgent(agentId) {
     detail = text.split("\n").slice(-2).join(" | ") || "probe parse failed";
   }
 
-  state.agents[agentId].lastProbeAt = safeIso();
-  state.agents[agentId].latencyMs = latency;
-  state.agents[agentId].status = ok ? "ok" : "error";
-  state.agents[agentId].detail = detail;
-  if (ok) state.agents[agentId].lastOkAt = safeIso();
+  state.agents.openclaw.lastProbeAt = safeIso();
+  state.agents.openclaw.latencyMs = latency;
+  state.agents.openclaw.status = ok ? "ok" : "error";
+  state.agents.openclaw.detail = detail;
+  if (ok) state.agents.openclaw.lastOkAt = safeIso();
 }
 
-function buildConfigSummary(env, cfg) {
+async function runNodeTest(nodeId) {
+  const start = Date.now();
+  const ctx = await loadConfigAndEnv();
+  const openclawEnv = ctx.openclaw.env || {};
+  const openclawCfg = ctx.openclaw.cfg || {};
+  const hermesEnv = ctx.hermes.env || {};
+  const hermesCfg = ctx.hermes.cfg || {};
+  const proxyUrl = ((((openclawCfg || {}).channels || {}).telegram || {}).proxy) || "";
+  const openclawTgToken = openclawEnv.TELEGRAM_TOKEN_WORK || ((((openclawCfg || {}).channels || {}).telegram || {}).accounts?.tg_work?.botToken) || "";
+  const hermesTgToken = hermesEnv.TELEGRAM_BOT_TOKEN || "";
+  const openclawBase = openclawEnv.OPENAI_BASE_URL || "https://aixj.vip/v1";
+  const openclawKey = openclawEnv.OPENAI_API_KEY_DAILY || openclawEnv.OPENAI_API_KEY || "";
+  const hermesBase = hermesCfg.baseUrl || hermesEnv.OPENAI_BASE_URL || "https://aixj.vip/v1";
+  const hermesKey = hermesEnv.OPENAI_API_KEY || "";
+
+  let ok = false;
+  let detail = "";
+  const checks = {};
+
+  if (nodeId === "telegram-openclaw") {
+    const code = await probeTelegram(openclawTgToken, proxyUrl);
+    checks.httpCode = code;
+    ok = code === 200;
+    detail = `Telegram getMe=${code}`;
+  } else if (nodeId === "telegram-hermes") {
+    const code = await probeTelegram(hermesTgToken, proxyUrl);
+    checks.httpCode = code;
+    ok = code === 200;
+    detail = `Telegram getMe=${code}`;
+  } else if (nodeId === "proxy") {
+    const [singbox, portOpen] = await Promise.all([
+      run("systemctl is-active sing-box.service"),
+      checkPort(7890)
+    ]);
+    checks.singbox = singbox.stdout || "unknown";
+    checks.portOpen = portOpen;
+    ok = checks.singbox === "active" && checks.portOpen === true;
+    detail = `sing-box=${checks.singbox}, 7890=${checks.portOpen ? "open" : "closed"}`;
+  } else if (nodeId === "openclaw") {
+    const [svc, portOpen, probe] = await Promise.all([
+      run("systemctl --user is-active openclaw-gateway.service"),
+      checkPort(19001),
+      run(`bash -lc "export PATH=${OPENCLAW_PATH}; timeout 20 ${OPENCLAW_BIN} models --agent ${OPENCLAW_MAIN_AGENT} status --json"`, 25000)
+    ]);
+    checks.service = svc.stdout || "unknown";
+    checks.portOpen = portOpen;
+    checks.probeExitOk = probe.ok;
+    ok = checks.service === "active" && checks.portOpen === true && checks.probeExitOk === true;
+    detail = `service=${checks.service}, 19001=${checks.portOpen ? "open" : "closed"}, probe=${probe.ok ? "ok" : "fail"}`;
+  } else if (nodeId === "hermes") {
+    const [svc, portOpen, dump] = await Promise.all([
+      run("systemctl --user is-active hermes-gateway.service"),
+      checkPort(18789),
+      run(`bash -lc "source /home/ubuntu/.hermes/hermes-agent/venv/bin/activate; timeout 20 ${HERMES_BIN} dump"`, 25000)
+    ]);
+    checks.service = svc.stdout || "unknown";
+    checks.portOpen = portOpen;
+    checks.dumpOk = dump.ok;
+    ok = checks.service === "active" && checks.portOpen === true && checks.dumpOk === true;
+    detail = `service=${checks.service}, 18789=${checks.portOpen ? "open" : "closed"}, dump=${dump.ok ? "ok" : "fail"}`;
+  } else if (nodeId === "llm") {
+    const [ocCode, hCode] = await Promise.all([
+      probeOpenAI(openclawBase, openclawKey),
+      probeOpenAI(hermesBase, hermesKey)
+    ]);
+    checks.openclawCode = ocCode;
+    checks.hermesCode = hCode;
+    ok = ocCode === 200 && hCode === 200;
+    detail = `openclaw=${ocCode}, hermes=${hCode}`;
+  } else {
+    return {
+      node: nodeId,
+      ok: false,
+      detail: "unsupported node id",
+      checks: {},
+      testedAt: safeIso(),
+      durationMs: Date.now() - start
+    };
+  }
+
+  return {
+    node: nodeId,
+    ok,
+    detail: maskError(detail),
+    checks,
+    testedAt: safeIso(),
+    durationMs: Date.now() - start
+  };
+}
+
+function buildConfigSummary(ctx) {
+  const env = ctx.openclaw.env || {};
+  const cfg = ctx.openclaw.cfg || {};
+  const hermesEnv = ctx.hermes.env || {};
+  const hermesCfg = ctx.hermes.cfg || {};
   const c = (((cfg || {}).channels || {}).telegram || {});
   return {
-    hasDailyKey: Boolean(env.OPENAI_API_KEY_DAILY || env.OPENAI_API_KEY),
-    hasWorkKey: Boolean(env.OPENAI_API_KEY_WORK || env.OPENAI_API_KEY),
-    hasDailyToken: Boolean(env.TELEGRAM_TOKEN_DAILY || c.accounts?.tg_daily?.botToken),
-    hasWorkToken: Boolean(env.TELEGRAM_TOKEN_WORK || c.accounts?.tg_work?.botToken),
-    telegramProxy: c.proxy || ""
+    openclaw: {
+      hasKey: Boolean(env.OPENAI_API_KEY_DAILY || env.OPENAI_API_KEY || env.OPENAI_API_KEY_WORK),
+      hasToken: Boolean(env.TELEGRAM_TOKEN_WORK || c.accounts?.tg_work?.botToken),
+      telegramProxy: c.proxy || "",
+      model: "openclaw/main"
+    },
+    hermes: {
+      hasKey: Boolean(hermesEnv.OPENAI_API_KEY),
+      hasToken: Boolean(hermesEnv.TELEGRAM_BOT_TOKEN),
+      model: hermesCfg.model || "-",
+      provider: hermesCfg.provider || "-",
+      baseUrl: hermesCfg.baseUrl || "-"
+    }
   };
 }
 
 function buildAgentSplit() {
-  function one(agentId, channelName, channelCode, hasKey, hasToken) {
+  function one(agentId, label, channelCode, openaiCode, hasKey, hasToken) {
     const probe = state.agents[agentId] || {};
     const checks = [
-      state.services.gateway === "active",
+      state.services.openclawGateway === "active" || agentId === "hermes",
+      state.services.hermesGateway === "active" || agentId === "openclaw",
       state.services.singbox === "active",
       state.network.proxyPortOpen === true,
-      state.network.openaiHttpCode === 200,
+      openaiCode === 200,
       channelCode === 200,
       probe.status === "ok",
       Boolean(hasKey),
@@ -322,17 +466,18 @@ function buildAgentSplit() {
       lastOkAt: probe.lastOkAt || null,
       score,
       chain: {
-        gateway: state.services.gateway === "active",
+        openclawGateway: state.services.openclawGateway === "active",
+        hermesGateway: state.services.hermesGateway === "active",
         singbox: state.services.singbox === "active",
         proxyOpen: state.network.proxyPortOpen === true,
-        openaiRelay: state.network.openaiHttpCode === 200,
+        openaiRelay: openaiCode === 200,
         telegram: channelCode === 200,
         probe: probe.status === "ok",
         apiKey: Boolean(hasKey),
         telegramToken: Boolean(hasToken)
       },
       channel: {
-        name: channelName,
+        name: label,
         httpCode: channelCode,
         state: channelCode === 200 ? "ok" : "error"
       }
@@ -340,16 +485,16 @@ function buildAgentSplit() {
   }
 
   return {
-    main: one("main", "tg_daily", state.network.telegramDaily, state.config.hasDailyKey, state.config.hasDailyToken),
-    work: one("work", "tg_work", state.network.telegramWork, state.config.hasWorkKey, state.config.hasWorkToken)
+    openclaw: one("openclaw", "OpenClaw Bot", state.network.openclawTelegram, state.network.openclawOpenaiHttpCode, state.config.openclaw.hasKey, state.config.openclaw.hasToken),
+    hermes: one("hermes", "Hermes Bot", state.network.hermesTelegram, state.network.hermesOpenaiHttpCode, state.config.hermes.hasKey, state.config.hermes.hasToken)
   };
 }
 
 function buildStatsAll() {
-  const mainOk = state.agents.main.status === "ok";
-  const workOk = state.agents.work.status === "ok";
-  const servicesOk = state.services.gateway === "active" && state.services.singbox === "active";
-  const channelsOk = state.network.telegramDaily === 200 && state.network.telegramWork === 200;
+  const openclawOk = state.agents.openclaw.status === "ok";
+  const hermesOk = state.agents.hermes.status === "ok";
+  const servicesOk = state.services.openclawGateway === "active" && state.services.hermesGateway === "active" && state.services.singbox === "active";
+  const channelsOk = state.network.openclawTelegram === 200 && state.network.hermesTelegram === 200;
 
   return {
     updatedAt: state.updatedAt,
@@ -358,22 +503,43 @@ function buildStatsAll() {
       servicesOk,
       channelsOk,
       proxyOpen: state.network.proxyPortOpen,
-      openaiCode: state.network.openaiHttpCode
+      openclawOpenaiCode: state.network.openclawOpenaiHttpCode,
+      hermesOpenaiCode: state.network.hermesOpenaiHttpCode
     },
     agents: {
-      main: state.agents.main,
-      work: state.agents.work,
-      okCount: [mainOk, workOk].filter(Boolean).length,
+      openclaw: state.agents.openclaw,
+      hermes: state.agents.hermes,
+      okCount: [openclawOk, hermesOk].filter(Boolean).length,
       total: 2
     },
     agentsSplit: buildAgentSplit(),
+    systems: {
+      openclaw: {
+        service: state.services.openclawGateway,
+        port: 19001,
+        portOpen: state.network.openclawPortOpen,
+        telegramCode: state.network.openclawTelegram,
+        openaiCode: state.network.openclawOpenaiHttpCode,
+        model: state.config.openclaw.model || "-"
+      },
+      hermes: {
+        service: state.services.hermesGateway,
+        port: 18789,
+        portOpen: state.network.hermesPortOpen,
+        telegramCode: state.network.hermesTelegram,
+        openaiCode: state.network.hermesOpenaiHttpCode,
+        model: state.config.hermes.model || "-",
+        provider: state.config.hermes.provider || "-"
+      }
+    },
     channels: {
-      dailyCode: state.network.telegramDaily,
-      workCode: state.network.telegramWork,
-      proxy: state.config.telegramProxy || "-"
+      openclawCode: state.network.openclawTelegram,
+      hermesCode: state.network.hermesTelegram,
+      proxy: state.config.openclaw.telegramProxy || "-"
     },
     services: {
-      gateway: state.services.gateway,
+      openclawGateway: state.services.openclawGateway,
+      hermesGateway: state.services.hermesGateway,
       singbox: state.services.singbox,
       proxyPortOpen: state.network.proxyPortOpen
     },
@@ -394,29 +560,48 @@ function buildStatsAll() {
 }
 
 async function updateSnapshot() {
-  const [{ env, cfg }, services, proxyPortOpen, metrics, system] = await Promise.all([
+  const [ctx, services, proxyPortOpen, openclawPortOpen, hermesPortOpen, metrics, system] = await Promise.all([
     loadConfigAndEnv(),
     checkServices(),
-    checkProxyPort(),
+    checkPort(7890),
+    checkPort(19001),
+    checkPort(18789),
     getLogMetrics(),
     probeSystem()
   ]);
 
-  const [openaiHttpCode, telegram] = await Promise.all([
-    probeOpenAI(env),
-    probeTelegram(env, cfg)
+  const openclawEnv = ctx.openclaw.env || {};
+  const openclawCfg = ctx.openclaw.cfg || {};
+  const hermesEnv = ctx.hermes.env || {};
+  const hermesCfg = ctx.hermes.cfg || {};
+  const openclawTgToken = openclawEnv.TELEGRAM_TOKEN_WORK || ((((openclawCfg || {}).channels || {}).telegram || {}).accounts?.tg_work?.botToken) || "";
+  const proxyUrl = ((((openclawCfg || {}).channels || {}).telegram || {}).proxy) || "";
+  const openclawBase = openclawEnv.OPENAI_BASE_URL || "https://aixj.vip/v1";
+  const openclawKey = openclawEnv.OPENAI_API_KEY_DAILY || openclawEnv.OPENAI_API_KEY || "";
+  const hermesBase = hermesCfg.baseUrl || hermesEnv.OPENAI_BASE_URL || "https://aixj.vip/v1";
+  const hermesKey = hermesEnv.OPENAI_API_KEY || "";
+  const hermesTgToken = hermesEnv.TELEGRAM_BOT_TOKEN || "";
+
+  const [openclawOpenaiHttpCode, hermesOpenaiHttpCode, openclawTelegram, hermesTelegram] = await Promise.all([
+    probeOpenAI(openclawBase, openclawKey),
+    probeOpenAI(hermesBase, hermesKey),
+    probeTelegram(openclawTgToken, proxyUrl),
+    probeTelegram(hermesTgToken, proxyUrl)
   ]);
 
-  const config = buildConfigSummary(env, cfg);
+  const config = buildConfigSummary(ctx);
 
   const next = {
     updatedAt: safeIso(),
     services,
     network: {
       proxyPortOpen,
-      openaiHttpCode,
-      telegramDaily: telegram.daily,
-      telegramWork: telegram.work
+      openclawPortOpen,
+      hermesPortOpen,
+      openclawOpenaiHttpCode,
+      hermesOpenaiHttpCode,
+      openclawTelegram,
+      hermesTelegram
     },
     agents: state.agents,
     metrics: {
@@ -566,6 +751,46 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, buildAgentSplit());
   }
 
+  if (req.method === "GET" && parsed.pathname === "/api/architecture") {
+    const stats = buildStatsAll();
+    return sendJson(res, 200, {
+      updatedAt: state.updatedAt,
+      nodes: [
+        { id: "telegram-openclaw", label: "Telegram @GobelieveClawdBot", status: state.network.openclawTelegram === 200 ? "ok" : "bad" },
+        { id: "openclaw", label: "OpenClaw Gateway (19001)", status: state.services.openclawGateway === "active" && state.network.openclawPortOpen ? "ok" : "bad" },
+        { id: "telegram-hermes", label: "Telegram @GobelievePersonalAgentBot", status: state.network.hermesTelegram === 200 ? "ok" : "bad" },
+        { id: "hermes", label: "Hermes Gateway (18789)", status: state.services.hermesGateway === "active" && state.network.hermesPortOpen ? "ok" : "bad" },
+        { id: "proxy", label: "sing-box Proxy (7890)", status: state.services.singbox === "active" && state.network.proxyPortOpen ? "ok" : "bad" },
+        { id: "llm", label: "AIXJ LLM API", status: (state.network.openclawOpenaiHttpCode === 200 && state.network.hermesOpenaiHttpCode === 200) ? "ok" : "warn" }
+      ],
+      links: [
+        { from: "telegram-openclaw", to: "openclaw" },
+        { from: "telegram-hermes", to: "hermes" },
+        { from: "openclaw", to: "proxy" },
+        { from: "hermes", to: "proxy" },
+        { from: "proxy", to: "llm" }
+      ],
+      systems: stats.systems
+    });
+  }
+
+  if (req.method === "GET" && parsed.pathname === "/api/test-node") {
+    const nodeId = String(parsed.query.node || "").trim();
+    if (!nodeId) return sendJson(res, 400, { error: "missing node query parameter" });
+    try {
+      const result = await runNodeTest(nodeId);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendJson(res, 500, {
+        node: nodeId,
+        ok: false,
+        detail: maskError(err && (err.message || err)),
+        checks: {},
+        testedAt: safeIso()
+      });
+    }
+  }
+
   if (req.method === "GET" && parsed.pathname === "/api/system") {
     return sendJson(res, 200, state.system);
   }
@@ -616,14 +841,14 @@ async function start() {
 
   setInterval(() => {
     const agentId = probeCursor;
-    probeCursor = probeCursor === "main" ? "work" : "main";
+    probeCursor = probeCursor === "openclaw" ? "hermes" : "openclaw";
     probeAgent(agentId)
       .then(() => updateSnapshot())
       .catch((err) => console.error("[probe]", agentId, err.message));
   }, PROBE_INTERVAL_MS);
 
-  probeAgent("main").then(() => updateSnapshot()).catch(() => {});
-  probeAgent("work").then(() => updateSnapshot()).catch(() => {});
+  probeAgent("openclaw").then(() => updateSnapshot()).catch(() => {});
+  probeAgent("hermes").then(() => updateSnapshot()).catch(() => {});
 
   server.listen(PORT, HOST, () => {
     console.log(`[dashboard] listening on http://${HOST}:${PORT}`);

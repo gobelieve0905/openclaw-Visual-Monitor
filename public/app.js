@@ -1,89 +1,196 @@
 'use strict';
 
 const $ = (id) => document.getElementById(id);
-const navItems = Array.from(document.querySelectorAll('.nav-item'));
+const nodeTestState = {};
 
-function classCard(selector, level) {
-  const el = document.querySelector(selector);
-  if (!el) return;
-  el.classList.remove('ok', 'warn', 'bad');
-  if (level === 'ok') el.classList.add('ok');
-  else if (level === 'warn') el.classList.add('warn');
-  else if (level === 'bad') el.classList.add('bad');
-}
-
-function classBadge(id, level, text) {
-  const el = $(id);
+function classByState(el, level) {
   if (!el) return;
   el.classList.remove('ok', 'warn', 'bad');
   if (level) el.classList.add(level);
-  if (text != null) el.textContent = text;
 }
 
-function overallText(level) {
-  return level === 'green' ? '正常' : level === 'yellow' ? '降级' : level === 'red' ? '故障' : '未知';
+function levelText(v) {
+  if (v === 'green') return '正常';
+  if (v === 'yellow') return '降级';
+  if (v === 'red') return '故障';
+  return '未知';
 }
 
-function scoreLevel(score) {
-  if (score >= 95) return 'ok';
-  if (score >= 70) return 'warn';
-  return 'bad';
+function codeText(code) {
+  return Number(code) === 200 ? '200 正常' : `${code || 0} 异常`;
 }
 
-function yn(flag) {
-  return flag ? '已配置' : '缺失';
+function stateLevelByCode(code) {
+  return Number(code) === 200 ? 'ok' : 'bad';
 }
 
-function translateOverallReason(reason) {
-  if (!reason) return '-';
-  const map = [
-    ['all checks passed', '所有检查通过'],
-    ['warming up: waiting first agent probes', '预热中：等待 Agent 首次探针'],
-    ['critical:', '严重异常:'],
-    ['degraded:', '服务降级:'],
-    ['agents unhealthy', 'Agent 不健康'],
-    ['partial agent degradation', '部分 Agent 降级'],
-    ['gateway', 'Gateway'],
-    ['sing-box', 'sing-box'],
-    ['proxy-port', '代理端口'],
-    ['openai-relay', 'OpenAI 中转'],
-    ['telegram-daily', 'Telegram Daily'],
-    ['telegram-work', 'Telegram Work']
-  ];
-  let out = String(reason);
-  for (const [from, to] of map) out = out.replaceAll(from, to);
-  return out;
+function stateLevelByService(v) {
+  return v === 'active' ? 'ok' : 'bad';
 }
 
-function updateNavByScroll() {
-  const sections = navItems
-    .map((n) => ({ nav: n, section: document.querySelector(n.getAttribute('href')) }))
-    .filter((x) => x.section);
+function fmtTs(ts) {
+  if (!ts) return '-';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return String(ts);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 
-  let active = null;
-  for (const item of sections) {
-    const rect = item.section.getBoundingClientRect();
-    if (rect.top <= 120) active = item.nav;
+function setText(id, text, cls) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text;
+  if (cls) {
+    el.classList.remove('ok', 'warn', 'bad');
+    el.classList.add(cls);
   }
-  if (!active && sections[0]) active = sections[0].nav;
-
-  navItems.forEach((n) => n.classList.remove('active'));
-  if (active) active.classList.add('active');
 }
 
-navItems.forEach((n) => {
-  n.addEventListener('click', (e) => {
-    const href = n.getAttribute('href');
-    if (!href || !href.startsWith('#')) return;
-    const target = document.querySelector(href);
-    if (!target) return;
-    e.preventDefault();
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-});
-window.addEventListener('scroll', updateNavByScroll, { passive: true });
+function applyAgentTestState(agentKey) {
+  const mapping = agentKey === 'openclaw'
+    ? { status: 'ocTestStatus', time: 'ocTestTime', conclusion: 'ocTestConclusion', error: 'ocTestError', btn: 'ocTestBtn' }
+    : { status: 'hermesTestStatus', time: 'hermesTestTime', conclusion: 'hermesTestConclusion', error: 'hermesTestError', btn: 'hermesTestBtn' };
+  const s = nodeTestState[agentKey] || {};
+  const btn = $(mapping.btn);
+  if (btn) btn.disabled = !!s.running;
+  if (s.running) {
+    setText(mapping.status, '正在测试...', 'warn');
+    setText(mapping.time, '-');
+    setText(mapping.conclusion, '测试进行中');
+    setText(mapping.error, '-');
+    if (btn) btn.textContent = '测试中...';
+    return;
+  }
+  if (btn) btn.textContent = '测试 Agent';
+  if (!s.testedAt) {
+    setText(mapping.status, '未测试');
+    setText(mapping.time, '-');
+    setText(mapping.conclusion, '-');
+    setText(mapping.error, '-');
+    return;
+  }
+  setText(mapping.status, s.ok ? '测试完成' : '测试失败', s.ok ? 'ok' : 'bad');
+  setText(mapping.time, fmtTs(s.testedAt));
+  setText(mapping.conclusion, s.ok ? `成功 (${s.durationMs || 0}ms)` : `失败 (${s.durationMs || 0}ms)`, s.ok ? 'ok' : 'bad');
+  setText(mapping.error, s.ok ? '-' : (s.detail || '-'), s.ok ? '' : 'bad');
+}
 
-function updateEvents(items) {
+function applyNodeTestState(nodeId) {
+  const s = nodeTestState[nodeId] || {};
+  const statusEls = Array.from(document.querySelectorAll(`[data-test-status="${nodeId}"]`));
+  const timeEls = Array.from(document.querySelectorAll(`[data-test-time="${nodeId}"]`));
+  const conclusionEls = Array.from(document.querySelectorAll(`[data-test-conclusion="${nodeId}"]`));
+  const errorEls = Array.from(document.querySelectorAll(`[data-test-error="${nodeId}"]`));
+  const btnEls = Array.from(document.querySelectorAll(`.node-test-btn[data-node-id="${nodeId}"]`));
+  btnEls.forEach((btn) => { btn.disabled = !!s.running; });
+  if (s.running) {
+    btnEls.forEach((btn) => { btn.textContent = '测试中...'; });
+    statusEls.forEach((el) => { el.textContent = '正在测试...'; el.className = 'warn'; });
+    timeEls.forEach((el) => { el.textContent = '-'; });
+    conclusionEls.forEach((el) => { el.textContent = '测试进行中'; });
+    errorEls.forEach((el) => { el.textContent = '-'; });
+    return;
+  }
+  btnEls.forEach((btn) => { btn.textContent = '测试'; });
+  if (!s.testedAt) return;
+  statusEls.forEach((el) => { el.textContent = s.ok ? '测试完成' : '测试失败'; el.className = s.ok ? 'ok' : 'bad'; });
+  timeEls.forEach((el) => { el.textContent = fmtTs(s.testedAt); });
+  conclusionEls.forEach((el) => { el.textContent = s.ok ? `成功 (${s.durationMs || 0}ms)` : `失败 (${s.durationMs || 0}ms)`; el.className = s.ok ? 'ok' : 'bad'; });
+  errorEls.forEach((el) => { el.textContent = s.ok ? '-' : (s.detail || '-'); el.className = s.ok ? '' : 'bad'; });
+}
+
+async function runNodeTest(nodeId, bindAgentKey) {
+  if (!nodeId) return;
+  nodeTestState[nodeId] = { ...(nodeTestState[nodeId] || {}), running: true };
+  if (bindAgentKey) nodeTestState[bindAgentKey] = { ...(nodeTestState[bindAgentKey] || {}), running: true };
+  applyNodeTestState(nodeId);
+  if (bindAgentKey) applyAgentTestState(bindAgentKey);
+
+  try {
+    const res = await fetch(`/api/test-node?node=${encodeURIComponent(nodeId)}`);
+    const j = await res.json();
+    const next = {
+      running: false,
+      ok: !!j.ok,
+      testedAt: j.testedAt || new Date().toISOString(),
+      durationMs: j.durationMs || 0,
+      detail: j.detail || '-',
+      checks: j.checks || {}
+    };
+    nodeTestState[nodeId] = next;
+    applyNodeTestState(nodeId);
+    if (bindAgentKey) {
+      nodeTestState[bindAgentKey] = next;
+      applyAgentTestState(bindAgentKey);
+    }
+  } catch (err) {
+    const next = {
+      running: false,
+      ok: false,
+      testedAt: new Date().toISOString(),
+      durationMs: 0,
+      detail: err && err.message ? err.message : '请求失败',
+      checks: {}
+    };
+    nodeTestState[nodeId] = next;
+    applyNodeTestState(nodeId);
+    if (bindAgentKey) {
+      nodeTestState[bindAgentKey] = next;
+      applyAgentTestState(bindAgentKey);
+    }
+  }
+}
+
+function renderArchitecture(data) {
+  const nodes = Array.isArray(data?.nodes) ? data.nodes : [];
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+  const sharedWrap = $('sharedArchNodes');
+  const ocWrap = $('ocArchNodes');
+  const hWrap = $('hArchNodes');
+  const sharedOrder = ['proxy', 'llm'];
+  const ocOrder = ['telegram-openclaw', 'openclaw'];
+  const hOrder = ['telegram-hermes', 'hermes'];
+
+  function renderGroup(wrap, order) {
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    order.forEach((id) => {
+      const n = nodeMap.get(id);
+      if (!n) return;
+      const d = document.createElement('div');
+      d.className = `arch-node ${n.status || 'warn'}`;
+      d.innerHTML = `
+        <b>${n.label || n.id}</b>
+        <small>${n.status || '-'}</small>
+        <div class="node-actions">
+          <button class="node-test-btn" data-node-id="${n.id}">测试</button>
+        </div>
+        <div class="test-meta compact">
+          <div>状态：<span data-test-status="${n.id}">未测试</span></div>
+          <div>上次测试：<span data-test-time="${n.id}">-</span></div>
+          <div>结论：<span data-test-conclusion="${n.id}">-</span></div>
+          <div>报错：<span data-test-error="${n.id}">-</span></div>
+        </div>
+      `;
+      wrap.appendChild(d);
+    });
+  }
+
+  renderGroup(sharedWrap, sharedOrder);
+  renderGroup(ocWrap, ocOrder);
+  renderGroup(hWrap, hOrder);
+
+  document.querySelectorAll('.node-test-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const nodeId = btn.getAttribute('data-node-id');
+      if (!nodeId) return;
+      await runNodeTest(nodeId);
+    });
+    applyNodeTestState(btn.getAttribute('data-node-id'));
+  });
+}
+
+function renderEvents(items) {
   const box = $('events');
   if (!box) return;
   box.innerHTML = '';
@@ -91,201 +198,148 @@ function updateEvents(items) {
     box.innerHTML = '<div class="event">暂无事件</div>';
     return;
   }
-  for (const ev of items) {
+  items.slice(0, 60).forEach((ev) => {
     const div = document.createElement('div');
     div.className = `event ${ev.level || ''}`;
-    div.innerHTML = `<span class="ts">${ev.ts || '-'}</span><span>${(ev.message || '-').replace(/</g, '&lt;')}</span>`;
+    div.textContent = `[${ev.ts || '-'}] ${ev.message || '-'}`;
     box.appendChild(div);
-  }
-}
-
-async function refreshEvents() {
-  try {
-    const r = await fetch('/api/events?limit=60');
-    const j = await r.json();
-    updateEvents(j.items || []);
-    classBadge('badge-events', null, `${(j.items || []).length}`);
-  } catch (_) {
-    updateEvents([]);
-  }
-}
-
-function update(snapshot, stats) {
-  $('updatedAt').textContent = `更新时间: ${snapshot.updatedAt || '-'}`;
-  $('updatedAtSide').textContent = `更新时间: ${snapshot.updatedAt || '-'}`;
-
-  const overall = snapshot.overall?.level || 'unknown';
-  $('overall').textContent = overallText(overall);
-  $('overallReason').textContent = translateOverallReason(snapshot.overall?.reason || '-');
-  classCard('[data-key="overall"]', overall === 'green' ? 'ok' : overall === 'yellow' ? 'warn' : 'bad');
-  classBadge('badge-overview', overall === 'green' ? 'ok' : overall === 'yellow' ? 'warn' : 'bad', overallText(overall));
-  $('sideOverall').textContent = overallText(overall);
-
-  $('gateway').textContent = snapshot.services.gateway || '-';
-  const gwOk = snapshot.services.gateway === 'active';
-  classCard('[data-key="gateway"]', gwOk ? 'ok' : 'bad');
-  $('sideGateway').textContent = snapshot.services.gateway || '-';
-
-  $('singbox').textContent = snapshot.services.singbox || '-';
-  const sbOk = snapshot.services.singbox === 'active';
-  classCard('[data-key="singbox"]', sbOk ? 'ok' : 'bad');
-  $('sideSingbox').textContent = snapshot.services.singbox || '-';
-
-  $('proxy').textContent = snapshot.network.proxyPortOpen ? '已监听' : '未监听';
-  classCard('[data-key="proxy"]', snapshot.network.proxyPortOpen ? 'ok' : 'bad');
-
-  $('openai').textContent = String(snapshot.network.openaiHttpCode || 0);
-  classCard('[data-key="openai"]', snapshot.network.openaiHttpCode === 200 ? 'ok' : 'bad');
-
-  $('tgDaily').textContent = String(snapshot.network.telegramDaily || 0);
-  classCard('[data-key="tgDaily"]', snapshot.network.telegramDaily === 200 ? 'ok' : 'bad');
-
-  $('tgWork').textContent = String(snapshot.network.telegramWork || 0);
-  classCard('[data-key="tgWork"]', snapshot.network.telegramWork === 200 ? 'ok' : 'bad');
-
-  $('agentMain').textContent = snapshot.agents.main.status || '-';
-  $('agentMainDetail').textContent = `延迟=${snapshot.agents.main.latencyMs ?? '-'}ms, ${snapshot.agents.main.detail || '-'}`;
-  classCard('[data-key="agentMain"]', snapshot.agents.main.status === 'ok' ? 'ok' : snapshot.agents.main.status === 'unknown' ? 'warn' : 'bad');
-
-  $('agentWork').textContent = snapshot.agents.work.status || '-';
-  $('agentWorkDetail').textContent = `延迟=${snapshot.agents.work.latencyMs ?? '-'}ms, ${snapshot.agents.work.detail || '-'}`;
-  classCard('[data-key="agentWork"]', snapshot.agents.work.status === 'ok' ? 'ok' : snapshot.agents.work.status === 'unknown' ? 'warn' : 'bad');
-
-  const agentsOk = snapshot.agents.main.status === 'ok' && snapshot.agents.work.status === 'ok';
-  classBadge('badge-agents', agentsOk ? 'ok' : 'warn', agentsOk ? '正常' : '降级');
-
-  const split = stats?.agentsSplit || {};
-  const splitMain = split.main || {};
-  const splitWork = split.work || {};
-  const mainScore = Number(splitMain.score || 0);
-  const workScore = Number(splitWork.score || 0);
-
-  $('splitMainScore').textContent = `${mainScore}%`;
-  $('splitMainDetail').textContent = splitMain.model || '-';
-  $('splitMainChannel').textContent = `${splitMain.channel?.name || '-'} (${splitMain.channel?.httpCode ?? 0})`;
-  $('splitMainProbe').textContent = splitMain.status === 'ok' ? '正常' : splitMain.status === 'error' ? '异常' : (splitMain.status || '-');
-  $('splitMainLatency').textContent = splitMain.latencyMs != null ? `${splitMain.latencyMs}ms` : '-';
-  $('splitMainLastOk').textContent = splitMain.lastOkAt || '-';
-  classCard('[data-key="splitMain"]', scoreLevel(mainScore));
-
-  $('splitWorkScore').textContent = `${workScore}%`;
-  $('splitWorkDetail').textContent = splitWork.model || '-';
-  $('splitWorkChannel').textContent = `${splitWork.channel?.name || '-'} (${splitWork.channel?.httpCode ?? 0})`;
-  $('splitWorkProbe').textContent = splitWork.status === 'ok' ? '正常' : splitWork.status === 'error' ? '异常' : (splitWork.status || '-');
-  $('splitWorkLatency').textContent = splitWork.latencyMs != null ? `${splitWork.latencyMs}ms` : '-';
-  $('splitWorkLastOk').textContent = splitWork.lastOkAt || '-';
-  classCard('[data-key="splitWork"]', scoreLevel(workScore));
-
-  const avgScore = Math.round((mainScore + workScore) / 2);
-  classBadge('badge-agent-split', scoreLevel(avgScore), `${avgScore}%`);
-
-  $('mReq').textContent = String(snapshot.metrics.llmRequest5m || 0);
-  $('mSend').textContent = String(snapshot.metrics.sendOk5m || 0);
-  $('mLlmFail').textContent = String(snapshot.metrics.llmFailed5m || 0);
-  classBadge('badge-activity', (snapshot.metrics.llmFailed5m || 0) === 0 ? 'ok' : 'warn', 'ACT');
-
-  $('rowDailyCode').textContent = String(snapshot.network.telegramDaily || 0);
-  $('rowDailyState').textContent = snapshot.network.telegramDaily === 200 ? '正常' : '异常';
-  $('rowWorkCode').textContent = String(snapshot.network.telegramWork || 0);
-  $('rowWorkState').textContent = snapshot.network.telegramWork === 200 ? '正常' : '异常';
-  $('rowProxyUrl').textContent = stats?.channels?.proxy || snapshot.config.telegramProxy || '-';
-  classBadge('badge-channels', snapshot.network.telegramDaily === 200 && snapshot.network.telegramWork === 200 ? 'ok' : 'bad', 'TG');
-
-  $('rowGateway').textContent = snapshot.services.gateway || '-';
-  $('rowSingbox').textContent = snapshot.services.singbox || '-';
-  $('rowProxy').textContent = snapshot.network.proxyPortOpen ? '已监听' : '未监听';
-  $('rowKeyDaily').textContent = yn(snapshot.config.hasDailyKey);
-  $('rowKeyWork').textContent = yn(snapshot.config.hasWorkKey);
-  $('rowTokenDaily').textContent = yn(snapshot.config.hasDailyToken);
-  $('rowTokenWork').textContent = yn(snapshot.config.hasWorkToken);
-  classBadge('badge-services', gwOk && sbOk && snapshot.network.proxyPortOpen ? 'ok' : 'bad', 'SYS');
-
-  $('mNet').textContent = String(snapshot.metrics.networkErrors5m || 0);
-  $('mTimeout').textContent = String(snapshot.metrics.timeoutErrors5m || 0);
-  $('mFailover').textContent = String(snapshot.metrics.failover5m || 0);
-  const errSum = (snapshot.metrics.networkErrors5m || 0) + (snapshot.metrics.timeoutErrors5m || 0) + (snapshot.metrics.llmFailed5m || 0);
-  classBadge('badge-errors', errSum === 0 ? 'ok' : 'warn', errSum === 0 ? '0' : String(errSum));
-
-  $('sysLoad1').textContent = String(snapshot.system.load1 ?? 0);
-  $('sysMem').textContent = `${snapshot.system.memUsedPct ?? 0}%`;
-  $('sysDisk').textContent = `${snapshot.system.diskUsedPct ?? 0}%`;
-  $('sysUptime').textContent = snapshot.system.uptime || '-';
-  const sysOk = (snapshot.system.memUsedPct ?? 0) < 90 && (snapshot.system.diskUsedPct ?? 0) < 90;
-  classBadge('badge-system', sysOk ? 'ok' : 'warn', 'HOST');
-}
-
-function drawTrend(items) {
-  const canvas = $('trend');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = '#0b1220';
-  ctx.fillRect(0, 0, w, h);
-
-  const pad = 20;
-  const innerW = w - pad * 2;
-  const innerH = h - pad * 2;
-
-  ctx.strokeStyle = '#253042';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 2; i++) {
-    const y = pad + (innerH / 2) * i;
-    ctx.beginPath();
-    ctx.moveTo(pad, y);
-    ctx.lineTo(w - pad, y);
-    ctx.stroke();
-  }
-
-  const points = items.slice(-120).map((x) => (x.overall === 'green' ? 2 : x.overall === 'yellow' ? 1 : 0));
-  if (points.length < 2) return;
-
-  ctx.strokeStyle = '#38bdf8';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  points.forEach((v, i) => {
-    const x = pad + (innerW * i) / (points.length - 1);
-    const y = pad + ((2 - v) / 2) * innerH;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   });
-  ctx.stroke();
 }
 
-async function refreshHistory() {
-  const res = await fetch('/api/history?limit=120');
-  const j = await res.json();
-  drawTrend(j.items || []);
+function setApiStatus(id, ok) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = ok ? '正常' : '异常';
+  classByState(el, ok ? 'ok' : 'bad');
 }
 
-async function refreshStats() {
-  const res = await fetch('/api/stats-all');
-  return res.json();
+function render(stats, health) {
+  const updated = stats?.updatedAt || health?.updatedAt || '-';
+  $('updatedAt').textContent = updated;
+  $('updatedAtSide').textContent = updated;
+
+  const overallLevel = health?.overall?.level || 'unknown';
+  $('overallLevel').textContent = levelText(overallLevel);
+  $('overallReason').textContent = health?.overall?.reason || '-';
+  classByState($('card-overall'), overallLevel === 'green' ? 'ok' : overallLevel === 'yellow' ? 'warn' : 'bad');
+
+  const oc = stats?.systems?.openclaw || {};
+  const hm = stats?.systems?.hermes || {};
+
+  setText('ocStatus', oc.service || '-', stateLevelByService(oc.service));
+  $('ocDetail').textContent = `模型: ${oc.model || '-'} / Provider: OpenClaw`;
+  classByState($('card-oc'), oc.service === 'active' && oc.portOpen ? 'ok' : 'bad');
+  setText('ocServiceQuick', oc.service || '-', stateLevelByService(oc.service));
+  setText('ocPortQuick', oc.portOpen ? `${oc.port} open` : `${oc.port} closed`, oc.portOpen ? 'ok' : 'bad');
+  setText('ocTgQuick', codeText(oc.telegramCode), stateLevelByCode(oc.telegramCode));
+  setText('ocLlmQuick', codeText(oc.openaiCode), stateLevelByCode(oc.openaiCode));
+
+  setText('hermesStatus', hm.service || '-', stateLevelByService(hm.service));
+  $('hermesDetail').textContent = `模型: ${hm.model || '-'} / Provider: ${hm.provider || '-'}`;
+  classByState($('card-hermes'), hm.service === 'active' && hm.portOpen ? 'ok' : 'bad');
+  setText('hServiceQuick', hm.service || '-', stateLevelByService(hm.service));
+  setText('hPortQuick', hm.portOpen ? `${hm.port} open` : `${hm.port} closed`, hm.portOpen ? 'ok' : 'bad');
+  setText('hTgQuick', codeText(hm.telegramCode), stateLevelByCode(hm.telegramCode));
+  setText('hLlmQuick', codeText(hm.openaiCode), stateLevelByCode(hm.openaiCode));
+
+  const proxyOpen = !!stats?.services?.proxyPortOpen;
+  $('proxyStatus').textContent = proxyOpen ? '已监听' : '未监听';
+  $('proxyDetail').textContent = `sing-box: ${stats?.services?.singbox || '-'}`;
+  classByState($('card-proxy'), proxyOpen && stats?.services?.singbox === 'active' ? 'ok' : 'bad');
+
+  $('ocService').textContent = oc.service || '-';
+  classByState($('ocService'), stateLevelByService(oc.service));
+  $('ocPort').textContent = oc.portOpen ? `${oc.port} open` : `${oc.port} closed`;
+  classByState($('ocPort'), oc.portOpen ? 'ok' : 'bad');
+  $('ocTg').textContent = codeText(oc.telegramCode);
+  classByState($('ocTg'), stateLevelByCode(oc.telegramCode));
+  $('ocLlm').textContent = codeText(oc.openaiCode);
+  classByState($('ocLlm'), stateLevelByCode(oc.openaiCode));
+  $('ocModel').textContent = oc.model || '-';
+
+  $('hService').textContent = hm.service || '-';
+  classByState($('hService'), stateLevelByService(hm.service));
+  $('hPort').textContent = hm.portOpen ? `${hm.port} open` : `${hm.port} closed`;
+  classByState($('hPort'), hm.portOpen ? 'ok' : 'bad');
+  $('hTg').textContent = codeText(hm.telegramCode);
+  classByState($('hTg'), stateLevelByCode(hm.telegramCode));
+  $('hLlm').textContent = codeText(hm.openaiCode);
+  classByState($('hLlm'), stateLevelByCode(hm.openaiCode));
+  $('hModel').textContent = `${hm.model || '-'} / ${hm.provider || '-'}`;
+
+  applyAgentTestState('openclaw');
+  applyAgentTestState('hermes');
+}
+
+async function fetchJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${url} ${r.status}`);
+  return r.json();
+}
+
+async function refreshOnce() {
+  const result = { healthOk: false, statsOk: false, archOk: false, eventsOk: false };
+
+  let health = null;
+  let stats = null;
+  let arch = null;
+
+  try {
+    health = await fetchJson('/api/health');
+    result.healthOk = true;
+  } catch (_) {}
+
+  try {
+    stats = await fetchJson('/api/stats-all');
+    result.statsOk = true;
+  } catch (_) {}
+
+  try {
+    arch = await fetchJson('/api/architecture');
+    result.archOk = true;
+  } catch (_) {}
+
+  try {
+    const events = await fetchJson('/api/events?limit=40');
+    renderEvents(events.items || []);
+    result.eventsOk = true;
+  } catch (_) {
+    renderEvents([]);
+  }
+
+  if (stats || health) render(stats || {}, health || {});
+  if (arch) renderArchitecture(arch);
+
+  setApiStatus('apiHealth', result.healthOk);
+  setApiStatus('apiStats', result.statsOk);
+  setApiStatus('apiArch', result.archOk);
+  setApiStatus('apiEvents', result.eventsOk);
 }
 
 async function boot() {
-  const [h, s] = await Promise.all([
-    fetch('/api/health').then((r) => r.json()),
-    refreshStats()
-  ]);
+  const ocBtn = $('ocTestBtn');
+  const hermesBtn = $('hermesTestBtn');
+  if (ocBtn) ocBtn.addEventListener('click', async () => runNodeTest('openclaw', 'openclaw'));
+  if (hermesBtn) hermesBtn.addEventListener('click', async () => runNodeTest('hermes', 'hermes'));
 
-  update(h, s);
-  await refreshHistory();
-  await refreshEvents();
-  updateNavByScroll();
+  await refreshOnce();
+  setInterval(() => refreshOnce().catch(() => {}), 15000);
 
-  setInterval(() => { refreshEvents().catch(() => {}); }, 15000);
-
-  const es = new EventSource('/api/stream');
-  es.onmessage = (evt) => {
-    try {
-      const payload = JSON.parse(evt.data);
-      if (payload.type === 'snapshot') {
-        update(payload.data, payload.stats || null);
-        refreshHistory().catch(() => {});
-      }
-    } catch (_) {}
-  };
+  try {
+    const es = new EventSource('/api/stream');
+    $('apiSse').textContent = '正常';
+    classByState($('apiSse'), 'ok');
+    es.onmessage = async () => {
+      await refreshOnce();
+    };
+    es.onerror = () => {
+      $('apiSse').textContent = '异常';
+      classByState($('apiSse'), 'bad');
+    };
+  } catch (_) {
+    $('apiSse').textContent = '异常';
+    classByState($('apiSse'), 'bad');
+  }
 }
 
-boot().catch((err) => console.error(err));
+boot().catch(() => {});
