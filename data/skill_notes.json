@@ -4,6 +4,7 @@
     "openai-whisper-api": "用于语音转写、识别或音频处理"
   },
   "hermes": {
-    "browserbase": "用于 Hermes 浏览器自动化能力"
+    "browserbase": "用于 Hermes 浏览器自动化能力",
+    "apple-notes": "用于 Hermes Apple Notes 同步与记录"
   }
 }
