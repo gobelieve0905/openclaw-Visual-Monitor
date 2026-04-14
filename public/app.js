@@ -7,6 +7,7 @@ let trendRange = 'day';
 const VIEW_DEFAULT = 'overview';
 const VIEW_SET = new Set(['overview', 'openclaw', 'hermes']);
 let openclawSkillItems = [];
+let ocSkillListCollapsed = false;
 
 function classByState(el, level) {
   if (!el) return;
@@ -472,15 +473,21 @@ function renderSkills(data) {
         const source = esc(x.source || 'unknown');
         const purpose = esc(x.purpose || '-');
         return `
-          <div class="skill-row">
-            <div class="skill-row-top">
-              <div class="skill-name">${name}</div>
-              <div class="skill-source">${source}</div>
-            </div>
-            <div class="skill-purpose">${purpose}</div>
-            <div class="skill-note-edit">
-              <input class="skill-note-input" id="ocSkillNoteInput-${idx}" value="${purpose}" />
-              <button class="skill-note-save" data-skill-idx="${idx}" data-skill-input-id="ocSkillNoteInput-${idx}">保存备注</button>
+          <div class="skill-row expanded" data-skill-row="${idx}">
+            <button class="skill-row-head" data-row-toggle="${idx}">
+              <span class="skill-row-left">
+                <span class="skill-name">${name}</span>
+                <span class="skill-source">${source}</span>
+              </span>
+              <span class="skill-caret">▾</span>
+            </button>
+            <div class="skill-row-body">
+              <div class="skill-purpose-text" data-purpose-view="${idx}" title="双击编辑备注">${purpose}<span class="skill-edit-hint">双击编辑</span></div>
+              <div class="skill-note-edit is-hidden" id="ocSkillEdit-${idx}">
+                <input class="skill-note-input" id="ocSkillNoteInput-${idx}" value="${purpose}" />
+                <button class="skill-note-save" data-skill-save="${idx}">保存</button>
+                <button class="skill-note-cancel" data-skill-cancel="${idx}">取消</button>
+              </div>
               <span class="skill-note-msg" id="ocSkillNoteMsg-${idx}">-</span>
             </div>
           </div>
@@ -488,37 +495,70 @@ function renderSkills(data) {
       }).join('')
       : '<span class="muted">暂无可用技能</span>';
 
-    ocList.querySelectorAll('.skill-note-save').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const idx = Number(btn.getAttribute('data-skill-idx') || -1);
-        const skillName = String(openclawSkillItems[idx]?.name || '').trim();
-        const inputId = btn.getAttribute('data-skill-input-id') || '';
-        const input = inputId ? $(inputId) : null;
-        const msg = $(`ocSkillNoteMsg-${idx}`);
-        const note = input && typeof input.value === 'string' ? input.value.trim() : '';
-        if (!skillName) {
-          if (msg) msg.textContent = '保存失败: skillName 无效';
-          return;
-        }
-        btn.disabled = true;
-        if (msg) msg.textContent = '保存中...';
-        try {
-          const r = await fetch('/api/skills/note', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ agent: 'openclaw', skillName, note })
-          });
-          const j = await r.json();
-          if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
-          if (msg) msg.textContent = '已保存';
-          await refreshOnce();
-        } catch (err) {
-          if (msg) msg.textContent = `保存失败: ${err && err.message ? err.message : 'unknown'}`;
-        } finally {
-          btn.disabled = false;
-        }
-      });
-    });
+    ocList.onclick = async (evt) => {
+      const toggle = evt.target.closest('[data-row-toggle]');
+      if (toggle) {
+        const idx = Number(toggle.getAttribute('data-row-toggle') || -1);
+        const row = ocList.querySelector(`[data-skill-row="${idx}"]`);
+        if (row) row.classList.toggle('expanded');
+        return;
+      }
+
+      const cancelBtn = evt.target.closest('[data-skill-cancel]');
+      if (cancelBtn) {
+        const idx = Number(cancelBtn.getAttribute('data-skill-cancel') || -1);
+        const editRow = $(`ocSkillEdit-${idx}`);
+        if (editRow) editRow.classList.add('is-hidden');
+        return;
+      }
+
+      const saveBtn = evt.target.closest('[data-skill-save]');
+      if (!saveBtn) return;
+      const idx = Number(saveBtn.getAttribute('data-skill-save') || -1);
+      const skillName = String(openclawSkillItems[idx]?.name || '').trim();
+      const input = $(`ocSkillNoteInput-${idx}`);
+      const msg = $(`ocSkillNoteMsg-${idx}`);
+      const note = input && typeof input.value === 'string' ? input.value.trim() : '';
+      if (!skillName) {
+        if (msg) msg.textContent = '保存失败: skillName 无效';
+        return;
+      }
+      saveBtn.disabled = true;
+      if (msg) msg.textContent = '保存中...';
+      try {
+        const r = await fetch('/api/skills/note', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agent: 'openclaw', skillName, note })
+        });
+        const j = await r.json();
+        if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        if (msg) msg.textContent = '已保存';
+        const editRow = $(`ocSkillEdit-${idx}`);
+        if (editRow) editRow.classList.add('is-hidden');
+        await refreshOnce();
+      } catch (err) {
+        if (msg) msg.textContent = `保存失败: ${err && err.message ? err.message : 'unknown'}`;
+      } finally {
+        saveBtn.disabled = false;
+      }
+    };
+
+    ocList.ondblclick = (evt) => {
+      const target = evt.target.closest('[data-purpose-view]');
+      if (!target) return;
+      const idx = Number(target.getAttribute('data-purpose-view') || -1);
+      const editRow = $(`ocSkillEdit-${idx}`);
+      if (!editRow) return;
+      editRow.classList.remove('is-hidden');
+      const input = $(`ocSkillNoteInput-${idx}`);
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    };
+
+    ocList.classList.toggle('collapsed', ocSkillListCollapsed);
   }
 
   const hList = $('hSkillList');
@@ -727,6 +767,7 @@ async function boot() {
   const hermesRefreshBtn = $('hermesRefreshBtn');
   const ocModelApplyBtn = $('ocModelApplyBtn');
   const hModelApplyBtn = $('hModelApplyBtn');
+  const ocSkillToggleBtn = $('ocSkillToggleBtn');
   document.querySelectorAll('.range-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const r = btn.getAttribute('data-range') || 'day';
@@ -742,6 +783,14 @@ async function boot() {
   if (hermesRefreshBtn) hermesRefreshBtn.addEventListener('click', async () => refreshNow('hermesRefreshBtn'));
   if (ocModelApplyBtn) ocModelApplyBtn.addEventListener('click', async () => switchModel('openclaw', 'ocModelSelect', 'ocModelSwitchMsg', 'ocModelApplyBtn'));
   if (hModelApplyBtn) hModelApplyBtn.addEventListener('click', async () => switchModel('hermes', 'hModelSelect', 'hModelSwitchMsg', 'hModelApplyBtn'));
+  if (ocSkillToggleBtn) {
+    ocSkillToggleBtn.addEventListener('click', () => {
+      ocSkillListCollapsed = !ocSkillListCollapsed;
+      const ocList = $('ocSkillList');
+      if (ocList) ocList.classList.toggle('collapsed', ocSkillListCollapsed);
+      ocSkillToggleBtn.textContent = ocSkillListCollapsed ? '展开' : '收起';
+    });
+  }
 
   initViewRouter();
 
