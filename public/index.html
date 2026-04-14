@@ -62,8 +62,11 @@
           <div class="agent-section-title">按 Agent 拆分（分）</div>
           <article class="agent-panel" id="card-oc">
             <div class="agent-panel-head">
-              <h4>OpenClaw Agent</h4>
-              <span id="ocStatus" class="status-pill">-</span>
+              <div class="agent-panel-title-row">
+                <h4>OpenClaw Agent</h4>
+                <span id="ocStatus" class="status-pill">-</span>
+              </div>
+              <button id="ocTestBtn" class="node-test-btn agent-main-btn">测试 Agent</button>
             </div>
             <p id="ocDetail" class="agent-detail">-</p>
             <div class="agent-checks">
@@ -73,10 +76,7 @@
               <div>LLM：<b id="ocLlmQuick">-</b></div>
             </div>
             <div class="agent-test-box">
-              <div class="agent-test-action">
-                <button id="ocTestBtn" class="node-test-btn">测试 Agent</button>
-                <p class="muted">一键检测该 Agent 全链路状态</p>
-              </div>
+              <p class="muted">一键检测该 Agent 全链路状态</p>
               <div class="test-meta test-meta-agent">
                 <div><label>状态</label><span id="ocTestStatus">未测试</span></div>
                 <div><label>上次测试</label><span id="ocTestTime">-</span></div>
@@ -92,8 +92,11 @@
 
           <article class="agent-panel" id="card-hermes">
             <div class="agent-panel-head">
-              <h4>Hermes Agent</h4>
-              <span id="hermesStatus" class="status-pill">-</span>
+              <div class="agent-panel-title-row">
+                <h4>Hermes Agent</h4>
+                <span id="hermesStatus" class="status-pill">-</span>
+              </div>
+              <button id="hermesTestBtn" class="node-test-btn agent-main-btn">测试 Agent</button>
             </div>
             <p id="hermesDetail" class="agent-detail">-</p>
             <div class="agent-checks">
@@ -103,10 +106,7 @@
               <div>LLM：<b id="hLlmQuick">-</b></div>
             </div>
             <div class="agent-test-box">
-              <div class="agent-test-action">
-                <button id="hermesTestBtn" class="node-test-btn">测试 Agent</button>
-                <p class="muted">一键检测该 Agent 全链路状态</p>
-              </div>
+              <p class="muted">一键检测该 Agent 全链路状态</p>
               <div class="test-meta test-meta-agent">
                 <div><label>状态</label><span id="hermesTestStatus">未测试</span></div>
                 <div><label>上次测试</label><span id="hermesTestTime">-</span></div>
