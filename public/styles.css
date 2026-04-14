@@ -200,7 +200,7 @@ body {
 }
 .shared-arch-grid {
   margin-top: 8px;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .agent-overview-grid {
@@ -225,6 +225,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: relative;
 }
 #card-oc {
   border-color: #b9ece6;
@@ -235,12 +236,19 @@ body {
   background: linear-gradient(180deg, #fff8f0 0%, #ffffff 22%);
 }
 .agent-panel-head {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  padding-bottom: 2px;
+  padding: 8px 10px;
+  border: 1px solid #d7e2f1;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(2px);
 }
 .agent-panel-title-row {
   display: flex;
@@ -342,7 +350,7 @@ body {
   gap: 10px;
 }
 .agent-arch-grid {
-  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 .arch-node {
@@ -419,6 +427,13 @@ body {
   gap: 6px;
 }
 .test-meta span { word-break: break-all; }
+.value-flash {
+  animation: valueFlash 2s ease;
+}
+@keyframes valueFlash {
+  0% { background: rgba(255, 229, 143, 0.78); }
+  100% { background: transparent; }
+}
 
 .table-wrap { overflow: auto; }
 table {
@@ -473,6 +488,11 @@ th {
   .agent-panel-head {
     align-items: flex-start;
     flex-direction: column;
+    position: static;
+    border: none;
+    background: transparent;
+    backdrop-filter: none;
+    padding: 0;
   }
   .agent-toolbar-actions {
     width: 100%;

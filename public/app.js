@@ -2,6 +2,7 @@
 
 const $ = (id) => document.getElementById(id);
 const nodeTestState = {};
+const BJ_TZ = 'Asia/Shanghai';
 
 function classByState(el, level) {
   if (!el) return;
@@ -32,14 +33,36 @@ function fmtTs(ts) {
   if (!ts) return '-';
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return String(ts);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  try {
+    const parts = new Intl.DateTimeFormat('zh-CN', {
+      timeZone: BJ_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).formatToParts(d);
+    const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} CST`;
+  } catch (_) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad((d.getUTCHours() + 8) % 24)}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} CST`;
+  }
 }
 
 function setText(id, text, cls) {
   const el = $(id);
   if (!el) return;
+  const prev = el.textContent;
   el.textContent = text;
+  if (prev !== String(text)) {
+    el.classList.remove('value-flash');
+    void el.offsetWidth;
+    el.classList.add('value-flash');
+    setTimeout(() => el.classList.remove('value-flash'), 2000);
+  }
   if (cls) {
     el.classList.remove('ok', 'warn', 'bad');
     el.classList.add(cls);
@@ -144,6 +167,43 @@ async function runNodeTest(nodeId, bindAgentKey) {
   }
 }
 
+async function runAgentTest(agentKey) {
+  const plan = agentKey === 'openclaw'
+    ? ['openclaw', 'telegram-openclaw', 'proxy', 'llm']
+    : ['hermes', 'telegram-hermes', 'proxy', 'llm'];
+  const mainNode = agentKey === 'openclaw' ? 'openclaw' : 'hermes';
+  const portLabel = agentKey === 'openclaw' ? '19001' : '18789';
+
+  nodeTestState[agentKey] = { ...(nodeTestState[agentKey] || {}), running: true };
+  applyAgentTestState(agentKey);
+
+  const results = [];
+  for (const nodeId of plan) {
+    await runNodeTest(nodeId);
+    results.push({ nodeId, ...(nodeTestState[nodeId] || {}) });
+  }
+
+  const failed = results.filter((r) => !r.ok).map((r) => r.nodeId);
+  const mainChecks = nodeTestState[mainNode]?.checks || {};
+  const portOpen = mainChecks.portOpen === true;
+  const ok = failed.length === 0 && portOpen;
+  const testedAt = new Date().toISOString();
+  const durationMs = results.reduce((acc, r) => acc + (r.durationMs || 0), 0);
+  const detail = ok
+    ? `链路通过，端口 ${portLabel}=open`
+    : `失败节点: ${failed.join(', ') || '-'}；端口 ${portLabel}=${portOpen ? 'open' : 'closed'}`;
+
+  nodeTestState[agentKey] = {
+    running: false,
+    ok,
+    testedAt,
+    durationMs,
+    detail,
+    checks: { portOpen, failedNodes: failed }
+  };
+  applyAgentTestState(agentKey);
+}
+
 function renderArchitecture(data) {
   const nodes = Array.isArray(data?.nodes) ? data.nodes : [];
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -183,7 +243,7 @@ function renderArchitecture(data) {
   renderGroup(ocWrap, ocOrder);
   renderGroup(hWrap, hOrder);
 
-  document.querySelectorAll('.node-test-btn').forEach((btn) => {
+  document.querySelectorAll('.node-test-btn[data-node-id]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const nodeId = btn.getAttribute('data-node-id');
       if (!nodeId) return;
@@ -218,8 +278,8 @@ function setApiStatus(id, ok) {
 
 function render(stats, health) {
   const updated = stats?.updatedAt || health?.updatedAt || '-';
-  $('updatedAt').textContent = updated;
-  $('updatedAtSide').textContent = updated;
+  $('updatedAt').textContent = fmtTs(updated);
+  $('updatedAtSide').textContent = fmtTs(updated);
 
   const overallLevel = health?.overall?.level || 'unknown';
   $('overallLevel').textContent = levelText(overallLevel);
@@ -319,15 +379,31 @@ async function refreshOnce() {
   setApiStatus('apiEvents', result.eventsOk);
 }
 
+async function refreshNow(btnId) {
+  const btn = $(btnId);
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '刷新中...';
+  }
+  try {
+    await refreshOnce();
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '刷新状态';
+    }
+  }
+}
+
 async function boot() {
   const ocBtn = $('ocTestBtn');
   const hermesBtn = $('hermesTestBtn');
   const ocRefreshBtn = $('ocRefreshBtn');
   const hermesRefreshBtn = $('hermesRefreshBtn');
-  if (ocBtn) ocBtn.addEventListener('click', async () => runNodeTest('openclaw', 'openclaw'));
-  if (hermesBtn) hermesBtn.addEventListener('click', async () => runNodeTest('hermes', 'hermes'));
-  if (ocRefreshBtn) ocRefreshBtn.addEventListener('click', async () => refreshOnce());
-  if (hermesRefreshBtn) hermesRefreshBtn.addEventListener('click', async () => refreshOnce());
+  if (ocBtn) ocBtn.addEventListener('click', async () => runAgentTest('openclaw'));
+  if (hermesBtn) hermesBtn.addEventListener('click', async () => runAgentTest('hermes'));
+  if (ocRefreshBtn) ocRefreshBtn.addEventListener('click', async () => refreshNow('ocRefreshBtn'));
+  if (hermesRefreshBtn) hermesRefreshBtn.addEventListener('click', async () => refreshNow('hermesRefreshBtn'));
 
   await refreshOnce();
   setInterval(() => refreshOnce().catch(() => {}), 15000);
