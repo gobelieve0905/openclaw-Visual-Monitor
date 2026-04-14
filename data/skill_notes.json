@@ -2,5 +2,8 @@
   "openclaw": {
     "healthcheck": "用于巡检 OpenClaw 与网关连通性",
     "openai-whisper-api": "用于语音转写、识别或音频处理"
+  },
+  "hermes": {
+    "browserbase": "用于 Hermes 浏览器自动化能力"
   }
 }

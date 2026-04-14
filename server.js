@@ -162,6 +162,19 @@ function inferOpenclawSkillPurpose(skillName) {
   return `用于 ${skillName} 相关任务执行`;
 }
 
+function inferHermesSkillPurpose(skillName, category) {
+  const n = String(skillName || "").toLowerCase();
+  const c = String(category || "").toLowerCase();
+  if (n.includes("memory") || c.includes("memory")) return "用于记忆管理与上下文持久化";
+  if (n.includes("plugin") || c.includes("plugin")) return "用于插件能力扩展与集成";
+  if (n.includes("mcp") || c.includes("mcp")) return "用于 MCP 服务连接与工具编排";
+  if (n.includes("session") || c.includes("session")) return "用于会话管理与历史维护";
+  if (n.includes("dashboard") || c.includes("dashboard")) return "用于监控面板与可视化信息展示";
+  if (n.includes("telegram") || c.includes("telegram")) return "用于 Telegram 通信与消息交互";
+  if (c) return `用于 ${category} 分类相关任务`;
+  return `用于 ${skillName} 相关任务执行`;
+}
+
 function addHistory(snapshot) {
   history.push(snapshot);
   while (history.length > 1440) history.shift();
@@ -876,6 +889,7 @@ async function getReviewSkills() {
 
   const notes = await loadSkillNotes();
   const ocNoteMap = (notes && notes.openclaw && typeof notes.openclaw === "object") ? notes.openclaw : {};
+  const hNoteMap = (notes && notes.hermes && typeof notes.hermes === "object") ? notes.hermes : {};
 
   const data = {
     updatedAt: safeIso(),
@@ -910,7 +924,14 @@ async function getReviewSkills() {
         all.push({ name: it.name, category: c.name });
       }
     }
-    data.hermes.available = all.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 120);
+    data.hermes.available = all
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 120)
+      .map((x) => ({
+        name: x.name,
+        category: x.category,
+        purpose: String(hNoteMap[x.name] || inferHermesSkillPurpose(x.name, x.category))
+      }));
   } catch (_) {}
 
   reviewCache.skills = { at: Date.now(), data };
@@ -1256,13 +1277,13 @@ const server = http.createServer(async (req, res) => {
       const agent = String(j.agent || "").trim().toLowerCase();
       const skillName = String(j.skillName || "").trim();
       const note = String(j.note || "").trim();
-      if (agent !== "openclaw") return sendJson(res, 400, { ok: false, error: "only openclaw is supported now" });
+      if (agent !== "openclaw" && agent !== "hermes") return sendJson(res, 400, { ok: false, error: "agent must be openclaw or hermes" });
       if (!skillName) return sendJson(res, 400, { ok: false, error: "skillName is required" });
 
       const notes = await loadSkillNotes();
-      if (!notes.openclaw || typeof notes.openclaw !== "object") notes.openclaw = {};
-      if (note) notes.openclaw[skillName] = note;
-      else delete notes.openclaw[skillName];
+      if (!notes[agent] || typeof notes[agent] !== "object") notes[agent] = {};
+      if (note) notes[agent][skillName] = note;
+      else delete notes[agent][skillName];
       await saveSkillNotes(notes);
 
       reviewCache.skills = { at: 0, data: null };
