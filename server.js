@@ -588,15 +588,16 @@ function buildStatsAll() {
 async function getReviewModels() {
   if (cacheValid(reviewCache.models)) return reviewCache.models.data;
 
-  let openclawList = await runOpenclawJson("models list");
-  if (!openclawList || !Array.isArray(openclawList.models)) {
-    const retry = await run(`bash -lc "export PATH=${OPENCLAW_PATH}; timeout 25 ${OPENCLAW_BIN} models list --json"`, 30000);
-    openclawList = tryParseJson(retry.stdout, { count: 0, models: [] });
-  }
-
+  let sessionStore = {};
+  try {
+    sessionStore = tryParseJson(await fsp.readFile("/home/ubuntu/.openclaw/agents/main/sessions/sessions.json", "utf8"), {}) || {};
+  } catch (_) {}
+  const ocItems = Object.values(sessionStore || {});
+  const last = ocItems
+    .filter((x) => typeof x.updatedAt === "number")
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0] || {};
+  const ocModel = last.model || state.config.openclaw.model || "-";
   const hermesDump = await run(`bash -lc "source /home/ubuntu/.hermes/hermes-agent/venv/bin/activate; timeout 15 ${HERMES_BIN} dump"`, 20000);
-
-  const ocModels = Array.isArray(openclawList?.models) ? openclawList.models : [];
   const hermesText = `${hermesDump.stdout || ""}\n${hermesDump.stderr || ""}`;
   const hModel = ((hermesText.match(/model:\s+([^\n]+)/) || [])[1] || "").trim();
   const hProvider = ((hermesText.match(/provider:\s+([^\n]+)/) || [])[1] || "").trim();
@@ -604,15 +605,15 @@ async function getReviewModels() {
   const data = {
     updatedAt: safeIso(),
     openclaw: {
-      count: ocModels.length,
-      defaultModel: (ocModels.find((m) => Array.isArray(m.tags) && m.tags.includes("default")) || ocModels[0] || {}).key || "-",
-      models: ocModels.slice(0, 30).map((m) => ({
-        key: m.key || "-",
-        name: m.name || m.key || "-",
-        contextWindow: m.contextWindow || 0,
-        available: !!m.available,
-        tags: Array.isArray(m.tags) ? m.tags : []
-      }))
+      count: ocModel && ocModel !== "-" ? 1 : 0,
+      defaultModel: ocModel || "-",
+      models: ocModel && ocModel !== "-" ? [{
+        key: ocModel,
+        name: ocModel,
+        contextWindow: Number(last.contextTokens || 0),
+        available: true,
+        tags: ["active"]
+      }] : []
     },
     hermes: {
       model: hModel || "-",
@@ -628,8 +629,17 @@ async function getReviewModels() {
 async function getReviewSessions() {
   if (cacheValid(reviewCache.sessions)) return reviewCache.sessions.data;
 
-  const openclawSessions = await runOpenclawJson("sessions --all-agents");
-  const ocItems = Array.isArray(openclawSessions?.sessions) ? openclawSessions.sessions : [];
+  let openclawSessionsRaw = {};
+  try {
+    openclawSessionsRaw = tryParseJson(await fsp.readFile("/home/ubuntu/.openclaw/agents/main/sessions/sessions.json", "utf8"), {}) || {};
+  } catch (_) {}
+  const ocItems = Object.entries(openclawSessionsRaw || {}).map(([key, x]) => ({
+    key,
+    updatedAt: x.updatedAt || null,
+    kind: x.chatType || "-",
+    model: x.model || "-",
+    totalTokens: Number(x.totalTokens || 0)
+  }));
 
   let hermesSessionsRaw = {};
   try {
@@ -647,14 +657,10 @@ async function getReviewSessions() {
   const data = {
     updatedAt: safeIso(),
     openclaw: {
-      count: Number(openclawSessions?.count || ocItems.length || 0),
-      items: ocItems.slice(0, 20).map((x) => ({
-        key: x.key || "-",
-        updatedAt: x.updatedAt || null,
-        kind: x.kind || "-",
-        model: x.model || "-",
-        totalTokens: Number(x.totalTokens || 0)
-      }))
+      count: ocItems.length,
+      items: ocItems
+        .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))
+        .slice(0, 20)
     },
     hermes: {
       count: hItems.length,
@@ -669,8 +675,19 @@ async function getReviewSessions() {
 async function getReviewSkills() {
   if (cacheValid(reviewCache.skills)) return reviewCache.skills.data;
 
-  const ocSkills = await runOpenclawJson("skills list");
-  const ocList = Array.isArray(ocSkills?.skills) ? ocSkills.skills : [];
+  let ocSkillsLoaded = [];
+  try {
+    const openclawSessionsRaw = tryParseJson(await fsp.readFile("/home/ubuntu/.openclaw/agents/main/sessions/sessions.json", "utf8"), {}) || {};
+    const latest = Object.values(openclawSessionsRaw || {})
+      .filter((x) => typeof x.updatedAt === "number")
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+    ocSkillsLoaded = (((latest || {}).skillsSnapshot || {}).resolvedSkills || []).map((x) => ({
+      name: x.name || "-",
+      source: x.source || "unknown",
+      eligible: true,
+      bundled: String(x.source || "").includes("bundled")
+    }));
+  } catch (_) {}
 
   let hCategories = [];
   let hTotal = 0;
@@ -690,7 +707,7 @@ async function getReviewSkills() {
   } catch (_) {}
 
   const sourceCounts = {};
-  for (const s of ocList) {
+  for (const s of ocSkillsLoaded) {
     const k = s.source || "unknown";
     sourceCounts[k] = (sourceCounts[k] || 0) + 1;
   }
@@ -698,9 +715,9 @@ async function getReviewSkills() {
   const data = {
     updatedAt: safeIso(),
     openclaw: {
-      total: ocList.length,
-      eligible: ocList.filter((x) => x.eligible).length,
-      bundled: ocList.filter((x) => x.bundled).length,
+      total: ocSkillsLoaded.length,
+      eligible: ocSkillsLoaded.filter((x) => x.eligible).length,
+      bundled: ocSkillsLoaded.filter((x) => x.bundled).length,
       sources: sourceCounts
     },
     hermes: {
