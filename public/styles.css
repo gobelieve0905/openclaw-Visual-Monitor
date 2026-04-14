@@ -248,6 +248,24 @@ body {
   gap: 10px;
   min-width: 0;
 }
+.agent-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toolbar-meta {
+  font-size: 12px;
+  color: #64748b;
+  background: #f3f7ff;
+  border: 1px solid #d8e3f3;
+  border-radius: 8px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+.toolbar-meta b {
+  color: #334155;
+  font-weight: 600;
+}
 .agent-panel-head h4 {
   margin: 0;
   font-size: 16px;
@@ -258,6 +276,13 @@ body {
   height: 34px;
   font-weight: 600;
   white-space: nowrap;
+}
+.agent-sub-btn {
+  min-width: 88px;
+  height: 34px;
+  background: linear-gradient(180deg, #f8fbff 0%, #edf3ff 100%);
+  color: #334155;
+  border-color: #b6c8e1;
 }
 .status-pill {
   display: inline-flex;
@@ -449,10 +474,20 @@ th {
     align-items: flex-start;
     flex-direction: column;
   }
-  .agent-main-btn {
+  .agent-toolbar-actions {
     width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .toolbar-meta {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+  .agent-main-btn {
     min-width: 0;
   }
+  .agent-sub-btn { min-width: 0; }
   .agent-test-box { grid-template-columns: 1fr; }
   .test-meta-agent { grid-template-columns: 1fr; }
   .agent-arch-grid { grid-template-columns: 1fr; }

@@ -48,14 +48,15 @@ function setText(id, text, cls) {
 
 function applyAgentTestState(agentKey) {
   const mapping = agentKey === 'openclaw'
-    ? { status: 'ocTestStatus', time: 'ocTestTime', conclusion: 'ocTestConclusion', error: 'ocTestError', btn: 'ocTestBtn' }
-    : { status: 'hermesTestStatus', time: 'hermesTestTime', conclusion: 'hermesTestConclusion', error: 'hermesTestError', btn: 'hermesTestBtn' };
+    ? { status: 'ocTestStatus', time: 'ocTestTime', conclusion: 'ocTestConclusion', error: 'ocTestError', btn: 'ocTestBtn', toolbarTime: 'ocToolbarLastTest' }
+    : { status: 'hermesTestStatus', time: 'hermesTestTime', conclusion: 'hermesTestConclusion', error: 'hermesTestError', btn: 'hermesTestBtn', toolbarTime: 'hermesToolbarLastTest' };
   const s = nodeTestState[agentKey] || {};
   const btn = $(mapping.btn);
   if (btn) btn.disabled = !!s.running;
   if (s.running) {
     setText(mapping.status, '正在测试...', 'warn');
     setText(mapping.time, '-');
+    setText(mapping.toolbarTime, '-');
     setText(mapping.conclusion, '测试进行中');
     setText(mapping.error, '-');
     if (btn) btn.textContent = '测试中...';
@@ -65,12 +66,14 @@ function applyAgentTestState(agentKey) {
   if (!s.testedAt) {
     setText(mapping.status, '未测试');
     setText(mapping.time, '-');
+    setText(mapping.toolbarTime, '-');
     setText(mapping.conclusion, '-');
     setText(mapping.error, '-');
     return;
   }
   setText(mapping.status, s.ok ? '测试完成' : '测试失败', s.ok ? 'ok' : 'bad');
   setText(mapping.time, fmtTs(s.testedAt));
+  setText(mapping.toolbarTime, fmtTs(s.testedAt));
   setText(mapping.conclusion, s.ok ? `成功 (${s.durationMs || 0}ms)` : `失败 (${s.durationMs || 0}ms)`, s.ok ? 'ok' : 'bad');
   setText(mapping.error, s.ok ? '-' : (s.detail || '-'), s.ok ? '' : 'bad');
 }
@@ -319,8 +322,12 @@ async function refreshOnce() {
 async function boot() {
   const ocBtn = $('ocTestBtn');
   const hermesBtn = $('hermesTestBtn');
+  const ocRefreshBtn = $('ocRefreshBtn');
+  const hermesRefreshBtn = $('hermesRefreshBtn');
   if (ocBtn) ocBtn.addEventListener('click', async () => runNodeTest('openclaw', 'openclaw'));
   if (hermesBtn) hermesBtn.addEventListener('click', async () => runNodeTest('hermes', 'hermes'));
+  if (ocRefreshBtn) ocRefreshBtn.addEventListener('click', async () => refreshOnce());
+  if (hermesRefreshBtn) hermesRefreshBtn.addEventListener('click', async () => refreshOnce());
 
   await refreshOnce();
   setInterval(() => refreshOnce().catch(() => {}), 15000);
