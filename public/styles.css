@@ -324,11 +324,16 @@ body {
 }
 .h-cat-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+}
+.hermes-skill-only {
+  padding: 8px;
+  border-style: dashed;
+  background: linear-gradient(180deg, #fbfdff 0%, #ffffff 100%);
 }
 .h-cat-item {
-  border: 1px solid #d7e4f3;
-  border-radius: 10px;
+  border: 1px solid #d4e1f0;
+  border-radius: 8px;
   background: #fff;
   overflow: hidden;
 }
@@ -339,8 +344,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 10px;
-  background: #f7fbff;
+  padding: 8px 10px;
+  background: #f6faff;
   border-bottom: 1px solid #e6eef8;
 }
 .h-cat-item summary::-webkit-details-marker {
@@ -360,7 +365,7 @@ body {
   background: #edf4ff;
 }
 .h-cat-skills {
-  padding: 0 8px 6px;
+  padding: 0 8px 4px;
 }
 .skill-note-edit {
   margin-top: 6px;

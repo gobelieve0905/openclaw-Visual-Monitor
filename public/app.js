@@ -455,9 +455,7 @@ function renderSkills(data) {
   setText('ocSkillTotal', data?.openclaw?.total ?? '-');
   setText('ocSkillEligible', data?.openclaw?.eligible ?? '-');
   setText('ocSkillEligibleDup', data?.openclaw?.eligible ?? '-');
-  setText('hSkillTotal', data?.hermes?.total ?? '-');
   setText('hSkillCats', (data?.hermes?.categories || []).length);
-  setText('hSkillCatsDup', (data?.hermes?.categories || []).length);
   const body = $('skillsTbody');
   if (body) {
     const rows = (data?.hermes?.categories || []).map((x) => `<tr>${td(x.category)}${td(x.count)}</tr>`);
