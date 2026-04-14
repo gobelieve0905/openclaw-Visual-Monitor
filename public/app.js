@@ -459,9 +459,10 @@ function renderSkills(data) {
   setText('hSkillCats', (data?.hermes?.categories || []).length);
   setText('hSkillCatsDup', (data?.hermes?.categories || []).length);
   const body = $('skillsTbody');
-  if (!body) return;
-  const rows = (data?.hermes?.categories || []).map((x) => `<tr>${td(x.category)}${td(x.count)}</tr>`);
-  body.innerHTML = rows.join('') || `<tr><td colspan="2">暂无技能数据</td></tr>`;
+  if (body) {
+    const rows = (data?.hermes?.categories || []).map((x) => `<tr>${td(x.category)}${td(x.count)}</tr>`);
+    body.innerHTML = rows.join('') || `<tr><td colspan="2">暂无技能数据</td></tr>`;
+  }
 
   const ocList = $('ocSkillList');
   if (ocList) {
