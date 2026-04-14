@@ -474,16 +474,17 @@ function renderSkills(data) {
         return `
           <div class="skill-table-row" data-skill-row="${idx}">
             <div class="skill-table-main">
-              <span class="skill-table-name">${name}</span>
+              <span class="skill-table-title">
+                <span class="skill-table-name">${name}</span>
+                <span class="skill-inline-note" data-purpose-view="${idx}" title="双击编辑备注">${purpose}</span>
+              </span>
               <span class="skill-table-state"><i class="dot ok"></i>可用</span>
             </div>
-            <div class="skill-table-note-line" data-purpose-view="${idx}" title="双击编辑备注">${purpose}</div>
             <div class="skill-note-edit is-hidden" id="ocSkillEdit-${idx}">
               <input class="skill-note-input" id="ocSkillNoteInput-${idx}" value="${purpose}" />
               <button class="skill-note-save" data-skill-save="${idx}">保存</button>
               <button class="skill-note-cancel" data-skill-cancel="${idx}">取消</button>
             </div>
-            <span class="skill-note-msg" id="ocSkillNoteMsg-${idx}">-</span>
           </div>
         `;
       }).join('')
@@ -503,14 +504,13 @@ function renderSkills(data) {
       const idx = Number(saveBtn.getAttribute('data-skill-save') || -1);
       const skillName = String(openclawSkillItems[idx]?.name || '').trim();
       const input = $(`ocSkillNoteInput-${idx}`);
-      const msg = $(`ocSkillNoteMsg-${idx}`);
       const note = input && typeof input.value === 'string' ? input.value.trim() : '';
       if (!skillName) {
-        if (msg) msg.textContent = '保存失败: skillName 无效';
         return;
       }
       saveBtn.disabled = true;
-      if (msg) msg.textContent = '保存中...';
+      const prevText = saveBtn.textContent;
+      saveBtn.textContent = '保存中...';
       try {
         const r = await fetch('/api/skills/note', {
           method: 'POST',
@@ -519,13 +519,13 @@ function renderSkills(data) {
         });
         const j = await r.json();
         if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
-        if (msg) msg.textContent = '已保存';
         const editRow = $(`ocSkillEdit-${idx}`);
         if (editRow) editRow.classList.add('is-hidden');
         await refreshOnce();
-      } catch (err) {
-        if (msg) msg.textContent = `保存失败: ${err && err.message ? err.message : 'unknown'}`;
+      } catch (_) {
+        // Keep UI clean: no inline error placeholder; user can retry save.
       } finally {
+        saveBtn.textContent = prevText || '保存';
         saveBtn.disabled = false;
       }
     };
