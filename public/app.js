@@ -473,11 +473,11 @@ function renderSkills(data) {
         const source = esc(x.source || 'unknown');
         const purpose = esc(x.purpose || '-');
         return `
-          <div class="skill-row expanded" data-skill-row="${idx}">
+          <div class="skill-row" data-skill-row="${idx}">
             <button class="skill-row-head" data-row-toggle="${idx}">
               <span class="skill-row-left">
                 <span class="skill-name">${name}</span>
-                <span class="skill-source">${source}</span>
+                <span class="skill-source-badge">${source}</span>
               </span>
               <span class="skill-caret">▾</span>
             </button>
