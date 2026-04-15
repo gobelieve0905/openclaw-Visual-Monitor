@@ -119,10 +119,15 @@ html[data-theme="dark"] body {
   background: #f4f8ff;
 }
 
-.content { padding: 18px; }
 .content {
-  max-width: 1500px;
-  margin: 0 auto;
+  padding: 18px;
+  width: 100%;
+  min-width: 0;
+}
+.content > .topbar,
+.content > .module {
+  width: 100%;
+  max-width: none;
 }
 .topbar {
   background: rgba(255, 255, 255, 0.94);
