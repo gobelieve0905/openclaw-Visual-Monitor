@@ -13,6 +13,38 @@ let ocSkillSearch = '';
 let hSkillSearch = '';
 let ocSkillListCollapsed = true;
 let hSkillListCollapsed = true;
+const THEME_KEY = 'monitor_theme';
+let currentTheme = 'light';
+
+function resolveTheme() {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch (_) {}
+  try {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch (_) {
+    return 'light';
+  }
+}
+
+function applyTheme(theme) {
+  currentTheme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  const btn = $('themeToggleBtn');
+  if (btn) btn.textContent = currentTheme === 'dark' ? '浅色模式' : '深色模式';
+}
+
+function initTheme() {
+  applyTheme(resolveTheme());
+  const btn = $('themeToggleBtn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const next = currentTheme === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    try { localStorage.setItem(THEME_KEY, next); } catch (_) {}
+  });
+}
 
 function classByState(el, level) {
   if (!el) return;
@@ -853,6 +885,7 @@ async function refreshNow(btnId) {
 }
 
 async function boot() {
+  initTheme();
   const ocBtn = $('ocTestBtn');
   const hermesBtn = $('hermesTestBtn');
   const ocRefreshBtn = $('ocRefreshBtn');
