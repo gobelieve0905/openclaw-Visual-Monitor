@@ -8,7 +8,10 @@ const VIEW_DEFAULT = 'overview';
 const VIEW_SET = new Set(['overview', 'openclaw', 'hermes']);
 let openclawSkillItems = [];
 let hermesSkillItems = [];
-let ocSkillListCollapsed = false;
+let latestSkillsData = null;
+let ocSkillSearch = '';
+let hSkillSearch = '';
+let ocSkillListCollapsed = true;
 
 function classByState(el, level) {
   if (!el) return;
@@ -452,6 +455,7 @@ function renderSessions(data) {
 }
 
 function renderSkills(data) {
+  latestSkillsData = data || null;
   setText('ocSkillTotal', data?.openclaw?.total ?? '-');
   setText('ocSkillEligible', data?.openclaw?.eligible ?? '-');
   setText('ocSkillEligibleDup', data?.openclaw?.eligible ?? '-');
@@ -464,10 +468,11 @@ function renderSkills(data) {
 
   const ocList = $('ocSkillList');
   if (ocList) {
-    const items = Array.isArray(data?.openclaw?.available) ? data.openclaw.available : [];
-    openclawSkillItems = items;
-    ocList.innerHTML = items.length
-      ? items.map((x, idx) => {
+    const rawItems = Array.isArray(data?.openclaw?.available) ? data.openclaw.available : [];
+    const filteredItems = rawItems.filter((x) => String(x?.name || '').toLowerCase().includes(ocSkillSearch));
+    openclawSkillItems = filteredItems;
+    ocList.innerHTML = filteredItems.length
+      ? filteredItems.map((x, idx) => {
         const rawName = String(x.name || '-');
         const name = esc(rawName);
         const purpose = esc(x.purpose || '-');
@@ -488,7 +493,7 @@ function renderSkills(data) {
           </div>
         `;
       }).join('')
-      : '<span class="muted">暂无可用技能</span>';
+      : `<span class="muted">${ocSkillSearch ? '未匹配到技能' : '暂无可用技能'}</span>`;
 
     ocList.onclick = async (evt) => {
       const cancelBtn = evt.target.closest('[data-skill-cancel]');
@@ -550,12 +555,13 @@ function renderSkills(data) {
   const hList = $('hSkillList');
   if (hList) {
     const items = Array.isArray(data?.hermes?.available) ? data.hermes.available : [];
-    hermesSkillItems = items;
-    if (!items.length) {
+    const filtered = items.filter((x) => String(x?.name || '').toLowerCase().includes(hSkillSearch));
+    hermesSkillItems = filtered;
+    if (!filtered.length) {
       hList.innerHTML = '<span class="muted">暂无可用技能</span>';
     } else {
       const grouped = new Map();
-      items.forEach((x, idx) => {
+      filtered.forEach((x, idx) => {
         const cat = String(x.category || 'misc');
         if (!grouped.has(cat)) grouped.set(cat, []);
         grouped.get(cat).push({ ...x, idx });
@@ -587,7 +593,7 @@ function renderSkills(data) {
           `;
         }).join('');
         return `
-          <details class="h-cat-item" ${catIdx === 0 ? 'open' : ''}>
+          <details class="h-cat-item">
             <summary>
               <span class="h-cat-name">${catName}</span>
               <span class="h-cat-count">${arr.length}</span>
@@ -852,6 +858,8 @@ async function boot() {
   const ocModelApplyBtn = $('ocModelApplyBtn');
   const hModelApplyBtn = $('hModelApplyBtn');
   const ocSkillToggleBtn = $('ocSkillToggleBtn');
+  const ocSkillSearchInput = $('ocSkillSearchInput');
+  const hSkillSearchInput = $('hSkillSearchInput');
   document.querySelectorAll('.range-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const r = btn.getAttribute('data-range') || 'day';
@@ -873,6 +881,24 @@ async function boot() {
       const ocList = $('ocSkillList');
       if (ocList) ocList.classList.toggle('collapsed', ocSkillListCollapsed);
       ocSkillToggleBtn.textContent = ocSkillListCollapsed ? '展开' : '收起';
+    });
+  }
+  if (ocSkillSearchInput) {
+    ocSkillSearchInput.addEventListener('input', () => {
+      ocSkillSearch = String(ocSkillSearchInput.value || '').trim().toLowerCase();
+      if (ocSkillSearch && ocSkillListCollapsed) {
+        ocSkillListCollapsed = false;
+        const ocList = $('ocSkillList');
+        if (ocList) ocList.classList.remove('collapsed');
+        if (ocSkillToggleBtn) ocSkillToggleBtn.textContent = '收起';
+      }
+      renderSkills(latestSkillsData || { openclaw: {}, hermes: {} });
+    });
+  }
+  if (hSkillSearchInput) {
+    hSkillSearchInput.addEventListener('input', () => {
+      hSkillSearch = String(hSkillSearchInput.value || '').trim().toLowerCase();
+      renderSkills(latestSkillsData || { openclaw: {}, hermes: {} });
     });
   }
 

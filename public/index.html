@@ -201,7 +201,10 @@
         <div class="skill-list-wrap">
           <div class="skill-list-head">
             <h4>可用技能清单</h4>
-            <button id="ocSkillToggleBtn" class="skill-toggle-btn">收起</button>
+            <div class="skill-head-tools">
+              <input id="ocSkillSearchInput" class="skill-search-input" placeholder="搜索技能名..." />
+              <button id="ocSkillToggleBtn" class="skill-toggle-btn">展开</button>
+            </div>
           </div>
           <div id="ocSkillList" class="skill-list-column"></div>
         </div>
@@ -262,6 +265,12 @@
 
         <h3 class="sub-title"><span class="module-tag">Hermes</span>技能</h3>
         <div class="skill-list-wrap hermes-skill-only">
+          <div class="skill-list-head">
+            <h4>可用技能清单</h4>
+            <div class="skill-head-tools">
+              <input id="hSkillSearchInput" class="skill-search-input" placeholder="搜索技能名..." />
+            </div>
+          </div>
           <div id="hSkillList" class="h-cat-list"></div>
         </div>
 
