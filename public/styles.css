@@ -1268,3 +1268,189 @@ html[data-theme="dark"] .range-btn {
     flex: 1;
   }
 }
+
+/* Reference palette v2: align contrast style with aixj dashboard screenshots */
+:root {
+  --ref-bg: #edf2f7;
+  --ref-surface: #f7fafc;
+  --ref-panel: #ffffff;
+  --ref-text: #0f172a;
+  --ref-text-sub: #475569;
+  --ref-line: #d8e1ee;
+  --ref-brand: #0ea5a4;
+  --ref-brand-soft: #def7f5;
+  --ref-blue: #3b82f6;
+  --ref-purple: #7c3aed;
+  --ref-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme="dark"] {
+  --ref-bg: #020b1c;
+  --ref-surface: #08152b;
+  --ref-panel: #152744;
+  --ref-text: #e6eefb;
+  --ref-text-sub: #9bb0cd;
+  --ref-line: #2a4569;
+  --ref-brand: #20d3b2;
+  --ref-brand-soft: #163a3c;
+  --ref-blue: #5b8dff;
+  --ref-purple: #9b78ff;
+  --ref-shadow: 0 14px 30px rgba(0, 0, 0, 0.42);
+}
+
+body {
+  color: var(--ref-text);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(31, 71, 126, 0.18) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(10, 92, 98, 0.16) 0%, transparent 40%),
+    linear-gradient(180deg, var(--ref-bg) 0%, #f7f9fd 100%);
+}
+
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(26, 72, 145, 0.24) 0%, transparent 38%),
+    radial-gradient(circle at 0% 100%, rgba(15, 92, 98, 0.22) 0%, transparent 38%),
+    linear-gradient(180deg, var(--ref-bg) 0%, #03122a 100%);
+}
+
+.sidebar {
+  background: rgba(248, 251, 255, 0.92);
+  border-right-color: var(--ref-line);
+}
+.brand h1 {
+  color: var(--ref-text);
+}
+.side-nav a {
+  color: var(--ref-text-sub);
+  border-color: var(--ref-line);
+  background: #f8fbff;
+}
+.side-nav a.active {
+  background: #e6f7f5;
+  border-color: #8accc3;
+  color: #0f766e;
+}
+html[data-theme="dark"] .side-nav a.active {
+  color: #d9fff8;
+}
+
+.topbar {
+  background: var(--ref-panel);
+  border-color: var(--ref-line);
+  box-shadow: var(--ref-shadow);
+}
+.topbar h2 {
+  color: var(--ref-text);
+}
+.topbar-sub,
+.side-note,
+.toolbar-meta,
+.muted {
+  color: var(--ref-text-sub);
+}
+
+.module {
+  background: var(--ref-panel);
+  border-color: var(--ref-line);
+  box-shadow: var(--ref-shadow);
+}
+.module h3,
+.module .sub-title {
+  color: var(--ref-text);
+  border-bottom-color: var(--ref-line);
+}
+.module-overview {
+  background: linear-gradient(180deg, #edf4ff 0%, var(--ref-panel) 28%);
+}
+.module-openclaw {
+  background: linear-gradient(180deg, #e9f8f4 0%, var(--ref-panel) 28%);
+}
+.module-hermes {
+  background: linear-gradient(180deg, #f3edff 0%, var(--ref-panel) 28%);
+}
+
+.summary-chip,
+.shared-block,
+.agent-panel,
+.agent-panel-head,
+.agent-checks > div,
+.agent-test-box,
+.agent-arch,
+.skill-list-wrap,
+.hermes-skill-only,
+.h-cat-item,
+.h-cat-item summary,
+.skill-note-edit,
+table,
+.chart-card,
+.trend-chart,
+.events {
+  background: var(--ref-panel);
+  border-color: var(--ref-line);
+}
+
+#card-oc {
+  border-color: #8fcfc6;
+  background: linear-gradient(180deg, #edf9f5 0%, var(--ref-panel) 25%);
+}
+#card-hermes {
+  border-color: #bda9e8;
+  background: linear-gradient(180deg, #f3edff 0%, var(--ref-panel) 25%);
+}
+
+html[data-theme="dark"] #card-oc {
+  background: linear-gradient(180deg, rgba(24, 86, 88, 0.52) 0%, var(--ref-panel) 28%);
+}
+html[data-theme="dark"] #card-hermes {
+  background: linear-gradient(180deg, rgba(69, 53, 98, 0.52) 0%, var(--ref-panel) 28%);
+}
+
+.status-pill {
+  background: #f3f8ff;
+  border-color: var(--ref-line);
+}
+
+.theme-toggle-btn,
+.node-test-btn,
+.skill-toggle-btn,
+.skill-note-save,
+.agent-sub-btn,
+.agent-main-btn {
+  background: linear-gradient(180deg, #eef4ff 0%, #e3edff 100%);
+  border-color: #8eaed8;
+  color: #1d4f91;
+}
+html[data-theme="dark"] .theme-toggle-btn,
+html[data-theme="dark"] .node-test-btn,
+html[data-theme="dark"] .skill-toggle-btn,
+html[data-theme="dark"] .skill-note-save,
+html[data-theme="dark"] .agent-sub-btn,
+html[data-theme="dark"] .agent-main-btn {
+  color: #d7e7ff;
+}
+
+th {
+  background: #ecf3ff;
+  color: #3a4f6d;
+}
+html[data-theme="dark"] th {
+  background: #203b5c;
+  color: #c9daf2;
+}
+
+.skill-search-input,
+.skill-note-input,
+.model-switch-row select {
+  background: #f7fbff;
+  border-color: var(--ref-line);
+  color: var(--ref-text);
+}
+
+.range-btn {
+  color: var(--ref-text-sub);
+}
+.range-btn.active {
+  background: var(--ref-panel);
+  border-color: #8eaed8;
+  color: #1d4f91;
+}
