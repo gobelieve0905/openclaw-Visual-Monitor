@@ -12,6 +12,7 @@ let latestSkillsData = null;
 let ocSkillSearch = '';
 let hSkillSearch = '';
 let ocSkillListCollapsed = true;
+let hSkillListCollapsed = true;
 
 function classByState(el, level) {
   if (!el) return;
@@ -657,6 +658,7 @@ function renderSkills(data) {
       }
     };
 
+    hList.classList.toggle('collapsed', hSkillListCollapsed);
   }
 }
 
@@ -859,6 +861,7 @@ async function boot() {
   const hModelApplyBtn = $('hModelApplyBtn');
   const ocSkillToggleBtn = $('ocSkillToggleBtn');
   const ocSkillSearchInput = $('ocSkillSearchInput');
+  const hSkillToggleBtn = $('hSkillToggleBtn');
   const hSkillSearchInput = $('hSkillSearchInput');
   document.querySelectorAll('.range-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -898,7 +901,21 @@ async function boot() {
   if (hSkillSearchInput) {
     hSkillSearchInput.addEventListener('input', () => {
       hSkillSearch = String(hSkillSearchInput.value || '').trim().toLowerCase();
+      if (hSkillSearch && hSkillListCollapsed) {
+        hSkillListCollapsed = false;
+        const hList = $('hSkillList');
+        if (hList) hList.classList.remove('collapsed');
+        if (hSkillToggleBtn) hSkillToggleBtn.textContent = '收起';
+      }
       renderSkills(latestSkillsData || { openclaw: {}, hermes: {} });
+    });
+  }
+  if (hSkillToggleBtn) {
+    hSkillToggleBtn.addEventListener('click', () => {
+      hSkillListCollapsed = !hSkillListCollapsed;
+      const hList = $('hSkillList');
+      if (hList) hList.classList.toggle('collapsed', hSkillListCollapsed);
+      hSkillToggleBtn.textContent = hSkillListCollapsed ? '展开' : '收起';
     });
   }
 

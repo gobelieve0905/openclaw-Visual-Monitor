@@ -346,6 +346,9 @@ body {
   display: grid;
   gap: 6px;
 }
+.h-cat-list.collapsed {
+  display: none;
+}
 .hermes-skill-only {
   padding: 8px;
   border-style: dashed;
