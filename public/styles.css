@@ -1351,22 +1351,22 @@ html[data-theme="dark"] .side-nav a.active {
 
 .module {
   background: var(--ref-panel);
-  border-color: var(--ref-line);
+  border: 2px solid var(--ref-line);
   box-shadow: var(--ref-shadow);
 }
 .module h3,
 .module .sub-title {
   color: var(--ref-text);
-  border-bottom-color: var(--ref-line);
+  border-bottom: 2px solid var(--ref-line);
 }
 .module-overview {
-  background: linear-gradient(180deg, #f0f5ff 0%, var(--ref-panel) 30%);
+  background: var(--ref-panel);
 }
 .module-openclaw {
-  background: linear-gradient(180deg, #ecf8f5 0%, var(--ref-panel) 30%);
+  background: var(--ref-panel);
 }
 .module-hermes {
-  background: linear-gradient(180deg, #f5f0ff 0%, var(--ref-panel) 30%);
+  background: var(--ref-panel);
 }
 
 .summary-chip,
@@ -1386,23 +1386,25 @@ table,
 .trend-chart,
 .events {
   background: var(--ref-panel);
-  border-color: var(--ref-line);
+  border: 1.5px solid var(--ref-line);
 }
 
 #card-oc {
-  border-color: #9dcfc8;
-  background: linear-gradient(180deg, #eef8f5 0%, var(--ref-panel) 26%);
+  border: 2px solid #8dbfb8;
+  background: var(--ref-panel);
 }
 #card-hermes {
-  border-color: #c2b2e6;
-  background: linear-gradient(180deg, #f5f1ff 0%, var(--ref-panel) 26%);
+  border: 2px solid #b9abd8;
+  background: var(--ref-panel);
 }
 
 html[data-theme="dark"] #card-oc {
-  background: linear-gradient(180deg, rgba(28, 88, 90, 0.44) 0%, var(--ref-panel) 30%);
+  border-color: #3d7f80;
+  background: var(--ref-panel);
 }
 html[data-theme="dark"] #card-hermes {
-  background: linear-gradient(180deg, rgba(72, 58, 98, 0.42) 0%, var(--ref-panel) 30%);
+  border-color: #6e6290;
+  background: var(--ref-panel);
 }
 
 .status-pill {
@@ -1416,7 +1418,7 @@ html[data-theme="dark"] #card-hermes {
 .skill-note-save,
 .agent-sub-btn,
 .agent-main-btn {
-  background: linear-gradient(180deg, #edf2fb 0%, #e5edf9 100%);
+  background: #e9eff8;
   border-color: #9bb1cf;
   color: #2a4e7f;
 }
@@ -1453,4 +1455,35 @@ html[data-theme="dark"] th {
   background: var(--ref-panel);
   border-color: #98afcf;
   color: #2a4e7f;
+}
+
+html[data-theme="dark"] .module {
+  border-color: #3a557a;
+}
+html[data-theme="dark"] .summary-chip,
+html[data-theme="dark"] .shared-block,
+html[data-theme="dark"] .agent-panel,
+html[data-theme="dark"] .agent-panel-head,
+html[data-theme="dark"] .agent-checks > div,
+html[data-theme="dark"] .agent-test-box,
+html[data-theme="dark"] .agent-arch,
+html[data-theme="dark"] .skill-list-wrap,
+html[data-theme="dark"] .hermes-skill-only,
+html[data-theme="dark"] .h-cat-item,
+html[data-theme="dark"] .h-cat-item summary,
+html[data-theme="dark"] .skill-note-edit,
+html[data-theme="dark"] table,
+html[data-theme="dark"] .chart-card,
+html[data-theme="dark"] .trend-chart,
+html[data-theme="dark"] .events {
+  border-color: #3a557a;
+}
+html[data-theme="dark"] .theme-toggle-btn,
+html[data-theme="dark"] .node-test-btn,
+html[data-theme="dark"] .skill-toggle-btn,
+html[data-theme="dark"] .skill-note-save,
+html[data-theme="dark"] .agent-sub-btn,
+html[data-theme="dark"] .agent-main-btn {
+  background: #233b5d;
+  border-color: #5f7ea6;
 }
